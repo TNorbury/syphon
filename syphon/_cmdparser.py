@@ -121,6 +121,28 @@ def get_parser() -> argparse.ArgumentParser:
     # required destination file
     build_parser.add_argument("destination", help="filename of the output file")
 
+    # check command
+    # create check subcommand parser
+    check_parser = subparsers.add_parser(
+        "check", epilog=epilog_last_line, help="checks the integrity of a built file"
+    )
+    # optional, hidden argument that is true when using this subparser
+    check_parser.add_argument(
+        "--check",
+        action="store_true",
+        default=True,
+        help=argparse.SUPPRESS,
+        required=False,
+    )
+    check_parser.add_argument("target", help="file output by the build command")
+    check_parser.add_argument(
+        "source",
+        default=".sha256sums",
+        dest="checksums",
+        help="a file whose lines are whitespace-delimited, checksum-file pairs",
+        required=False,
+    )
+
     # init command
     # create init subcommand parser
     init_parser = subparsers.add_parser(
