@@ -24,9 +24,8 @@ def _main(args: List[str]) -> int:
     """
     from os.path import abspath, join
     from sortedcontainers import SortedDict
-    from typing import Any
 
-    from argparse import ArgumentParser
+    from argparse import ArgumentParser, Namespace
 
     from syphon.archive import archive
     from syphon.build_ import build
@@ -41,7 +40,7 @@ def _main(args: List[str]) -> int:
         parser.print_usage()
         return 0
 
-    parsed_args: Any = parser.parse_args(args[1:])
+    parsed_args: Namespace = parser.parse_args(args[1:])
 
     if parsed_args.help is True:
         parser.print_help()
