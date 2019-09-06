@@ -4,14 +4,12 @@
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
 
 """
-from os.path import split
+from os.path import basename, dirname
 from typing import List, Optional
 
 from pandas import DataFrame, Series, concat, read_csv
 from pandas.errors import ParserError
 from sortedcontainers import SortedDict
-
-from syphon import Context
 
 from ._lockmanager import LockManager
 
@@ -48,24 +46,27 @@ def _merge_metafiles(
 
 
 def _write_filtered_data(
+    archive: str,
+    schema: SortedDict,
     filtered_data: List[DataFrame],
     datafile: str,
-    context: Context,
     lockman: LockManager,
+    overwrite: bool,
+    verbose: bool,
 ):
     from os import makedirs
     from os.path import exists, join
 
     from syphon.schema import resolve_path
 
-    _, datafilename = split(datafile)
+    datafilename = basename(datafile)
 
     for data in filtered_data:
         path: Optional[str] = None
         try:
-            if context.archive is None:
+            if archive is None:
                 raise AssertionError()
-            path = resolve_path(context.archive, context.schema, data)
+            path = resolve_path(archive, schema, data)
         except IndexError:
             lockman.release_all()
             raise
@@ -77,7 +78,7 @@ def _write_filtered_data(
             path, datafilename
         ) if path is not None else datafilename
 
-        if exists(target_filename) and not context.overwrite:
+        if exists(target_filename) and not overwrite:
             lockman.release_all()
             raise FileExistsError(
                 "Archive error: file already exists @ " "{}".format(target_filename)
@@ -90,18 +91,29 @@ def _write_filtered_data(
             lockman.release_all()
             raise
 
-        if context.verbose:
+        if verbose:
             print("Archive: wrote {0}".format(target_filename))
 
 
-def archive(context: Context):
-    """Store the files specified in the current context.
+def archive(
+    data_glob: str,
+    archive_dir: str,
+    schema_filepath: str,
+    meta_glob: Optional[str] = None,
+    overwrite: bool = False,
+    verbose: bool = False,
+):
+    """Store the files matching the given glob pattern.
 
     Args:
-        context (Context): Runtime settings object.
+        data_glob: Glob pattern matching one or more data files.
+        archive_dir: Absolute path to the data storage directory.
+        schema_filepath: Absolute path to a JSON file containing a storage schema.
+        meta_glob: Glob pattern matching one or more metadata files.
+        overwrite: Whether existing files should be overwritten during archival.
+        verbose: Whether activities should be printed to the standard output.
 
     Raises:
-        AssertionError: Context.archive or Context.data is None.
         FileExistsError: An archive file already exists with
             the same filepath.
         IndexError: Schema value is not a column header of a
@@ -116,7 +128,7 @@ def archive(context: Context):
 
     from pandas.errors import EmptyDataError
     from sortedcontainers import SortedList
-    from syphon.schema import check_columns
+    from syphon.schema import check_columns, load
 
     from . import datafilter
     from . import file_map
@@ -124,17 +136,17 @@ def archive(context: Context):
     lock_manager = LockManager()
     lock_list: List[str] = list()
 
-    if context.data is None:
-        raise AssertionError()
+    schema: SortedDict = load(schema_filepath)
+
     # add '#lock' file to all data directories
-    data_list: SortedList = SortedList(glob(context.data))
-    lock_list.append(lock_manager.lock(split(data_list[0])[0]))
+    data_list: SortedList = SortedList(glob(data_glob))
+    lock_list.append(lock_manager.lock(dirname(data_list[0])))
 
     # add '#lock' file to all metadata directories
     meta_list: SortedList = SortedList()
-    if context.meta is not None:
-        meta_list = SortedList(glob(context.meta))
-        lock_list.append(lock_manager.lock(split(meta_list[0])[0]))
+    if meta_glob is not None:
+        meta_list = SortedList(glob(meta_glob))
+        lock_list.append(lock_manager.lock(dirname(meta_list[0])))
 
     fmap: SortedDict = file_map(data_list, meta_list)
 
@@ -146,8 +158,6 @@ def archive(context: Context):
             data_frame = DataFrame()
         except ParserError:
             lock_manager.release_all()
-            raise
-        except Exception:
             raise
 
         if data_frame.empty:
@@ -165,18 +175,18 @@ def archive(context: Context):
             data_frame = concat([data_frame, meta_frame], axis=1)
 
         try:
-            check_columns(context.schema, data_frame)
+            check_columns(schema, data_frame)
         except IndexError:
             lock_manager.release_all()
             raise
 
-        filtered_data: List[DataFrame] = datafilter(context.schema, data_frame)
+        filtered_data: List[DataFrame] = datafilter(schema, data_frame)
 
         if len(filtered_data) == 0:
             filtered_data = [data_frame]
 
-        _write_filtered_data(filtered_data, datafile, context, lock_manager)
+        _write_filtered_data(
+            archive, schema, filtered_data, datafile, lock_manager, overwrite, verbose
+        )
 
-    while lock_list:
-        lock: str = lock_list.pop()
-        lock_manager.release(lock)
+    lock_manager.release_all()

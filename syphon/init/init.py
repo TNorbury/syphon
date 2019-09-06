@@ -4,27 +4,30 @@
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
 
 """
-from syphon import Context
+from sortedcontainers import SortedDict
 
 
-def init(context: Context):
-    """Create a schema file in the given directory
+def init(
+    schema: SortedDict,
+    schema_filepath: str,
+    overwrite: bool = False,
+    verbose: bool = False,
+):
+    """Create a schema file in the given directory.
 
     Args:
-        context (Context): Runtime settings object.
+        schema: The desired storage schema.
+        schema_filepath: Absolute path to a JSON file containing a storage schema.
+        overwrite: Whether an existing schema file should be replaced.
+        verbose: Whether activities should be printed to the standard output.
 
     Raises:
-        AssertionError: Context.archive is None.
         OSError: File operation error. Error type raised may be
             a subclass of OSError.
     """
-    from os.path import join
     from syphon.schema import save
 
-    if context.archive is None:
-        raise AssertionError()
-    schema_path: str = join(context.archive, context.schema_file)
-    save(context.schema, schema_path, context.overwrite)
+    save(schema, schema_filepath, overwrite)
 
-    if context.verbose:
-        print("Init: wrote {0}".format(schema_path))
+    if verbose:
+        print("Init: wrote {0}".format(schema_filepath))
