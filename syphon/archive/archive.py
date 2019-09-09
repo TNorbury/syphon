@@ -188,7 +188,13 @@ def archive(
             filtered_data = [data_frame]
 
         _write_filtered_data(
-            archive, schema, filtered_data, datafile, lock_manager, overwrite, verbose
+            archive_dir,
+            schema,
+            filtered_data,
+            datafile,
+            lock_manager,
+            overwrite,
+            verbose,
         )
 
     lock_manager.release_all()
