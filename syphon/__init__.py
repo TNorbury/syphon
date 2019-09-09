@@ -6,7 +6,6 @@
 
 """
 from . import _version
-from ._cmdparser import get_parser
 from .archive import archive
 from .build_ import build
 from .check import check
@@ -21,7 +20,6 @@ __all__ = [
     "archive",
     "build",
     "check",
-    "get_parser",
     "init",
     "__url__",
     "__version__",
