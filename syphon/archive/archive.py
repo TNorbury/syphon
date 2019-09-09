@@ -98,7 +98,7 @@ def _write_filtered_data(
 def archive(
     data_glob: str,
     archive_dir: str,
-    schema_filepath: str,
+    schema_filepath: Optional[str] = None,
     meta_glob: Optional[str] = None,
     overwrite: bool = False,
     verbose: bool = False,
@@ -136,7 +136,9 @@ def archive(
     lock_manager = LockManager()
     lock_list: List[str] = list()
 
-    schema: SortedDict = load(schema_filepath)
+    schema: SortedDict = SortedDict() if schema_filepath is None else load(
+        schema_filepath
+    )
 
     # add '#lock' file to all data directories
     data_list: SortedList = SortedList(glob(data_glob))
