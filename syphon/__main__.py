@@ -22,17 +22,17 @@ def _main(args: List[str]) -> int:
     Returns:
         int: An integer exit code. `0` for success or `1` for failure.
     """
-    from os.path import abspath, join
+    import os
     from sortedcontainers import SortedDict
 
     from argparse import ArgumentParser, Namespace
 
-    from syphon.archive import archive
-    from syphon.build_ import build
-    from syphon.init import init
-    from syphon.schema import load
-
-    from . import Context, get_parser, __version__
+    from . import __version__, schema
+    from ._cmdparser import get_parser
+    from .archive import archive
+    from .build_ import build
+    from .check import check
+    from .init import init
 
     parser: ArgumentParser = get_parser()
 
@@ -50,48 +50,53 @@ def _main(args: List[str]) -> int:
         print(__version__)
         return 0
 
-    this_context = Context()
-
-    this_context.overwrite = parsed_args.force
-    this_context.verbose = parsed_args.verbose
-
-    if getattr(parsed_args, "data", False):
-        this_context.data = abspath(parsed_args.data)
-
-    if getattr(parsed_args, "destination", False):
-        if getattr(parsed_args, "build", False):
-            this_context.cache = abspath(parsed_args.destination)
-        else:
-            this_context.archive = abspath(parsed_args.destination)
-
-    if getattr(parsed_args, "headers", False):
-        this_context.schema = SortedDict()
-        index = 0
-        for header in parsed_args.headers:
-            this_context.schema["{}".format(index)] = header
-            index += 1
-
-    if getattr(parsed_args, "source", False):
-        this_context.archive = abspath(parsed_args.source)
-
-    if getattr(parsed_args, "metadata", False):
-        if parsed_args.metadata is not None:
-            this_context.meta = abspath(parsed_args.metadata)
-
     try:
+        # Handle each subcommand.
         if getattr(parsed_args, "archive", False):
-            if this_context.archive is None:
-                raise AssertionError()
-            schemafile = join(this_context.archive, this_context.schema_file)
-            this_context.schema = load(schemafile)
-            archive(this_context)
+            archive_dirpath: str = os.path.abspath(parsed_args.archive_destination)
+            schema_filepath: str = os.path.join(archive_dirpath, schema.DEFAULT_FILE)
+            archive(
+                parsed_args.data,
+                archive_dirpath,
+                schema_filepath if os.path.exists(schema_filepath) else None,
+                parsed_args.meta,
+                parsed_args.force,
+                parsed_args.verbose,
+            )
+        elif getattr(parsed_args, "build", False):
+            build(
+                os.path.abspath(parsed_args.build_source),
+                os.path.abspath(parsed_args.build_destination),
+                parsed_args.force,
+                parsed_args.verbose,
+            )
+        elif getattr(parsed_args, "check", False):
+            checksum_file: Optional[str] = parsed_args.check_source
+            return int(
+                not check(
+                    os.path.abspath(parsed_args.check_target),
+                    checksum_file
+                    if checksum_file is None
+                    else os.path.abspath(checksum_file),
+                    verbose=parsed_args.verbose,
+                )
+            )
+        elif getattr(parsed_args, "init", False):
+            schema = SortedDict()
+            for (i, header) in zip(
+                range(0, len(parsed_args.headers)), parsed_args.headers
+            ):
+                schema["%d" % i] = header
 
-        if getattr(parsed_args, "init", False):
-            init(this_context)
-
-        if getattr(parsed_args, "build", False):
-            build(this_context)
-    except OSError as err:
+            init(
+                schema,
+                os.path.join(
+                    os.path.abspath(parsed_args.init_destination), schema.DEFAULT_FILE
+                ),
+                parsed_args.force,
+                parsed_args.verbose,
+            )
+    except Exception as err:
         print(str(err))
         return 1
 
