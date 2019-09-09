@@ -10,8 +10,8 @@ from typing import Callable, Optional
 def check(
     cache_filepath: str,
     checksum_filepath: Optional[str] = None,
-    checksum_line_match: Optional[Callable[(str), bool]] = None,
-    checksum_line_reduce: Optional[Callable[(str), Optional[str]]] = None,
+    checksum_line_match: Optional[Callable[[str], bool]] = None,
+    checksum_line_reduce: Optional[Callable[[str], Optional[str]]] = None,
     verbose: bool = False,
 ) -> bool:
     """Verify the integrity of the built cache file.

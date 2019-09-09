@@ -21,8 +21,8 @@ class _ChecksumExtractor(object):
     def __call__(
         self,
         filepath: str,
-        line_match: Optional[Callable[(str), bool]] = None,
-        line_reduce: Optional[Callable[(str), Optional[str]]] = None,
+        line_match: Optional[Callable[[str], bool]] = None,
+        line_reduce: Optional[Callable[[str], Optional[str]]] = None,
     ) -> Optional[str]:
         """Parse the relevant checksum from the checksum file.
 
