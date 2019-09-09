@@ -3,7 +3,7 @@
         "scope": "python",
         "prefix": "header",
         "body": [
-            "\"\"\"syphon.${1}",
+            "\"\"\"${1}",
             "",
             "   Copyright Keithley Instruments, LLC.",
             "   Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)",
