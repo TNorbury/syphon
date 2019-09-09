@@ -12,10 +12,8 @@ from pandas.testing import assert_frame_equal
 from py._path.local import LocalPath
 from sortedcontainers import SortedDict
 
-from syphon import Context
-from syphon.archive import archive
-from syphon.build_ import build
-from syphon.init import init
+import syphon
+import syphon.schema
 
 from .. import get_data_path
 
@@ -38,28 +36,24 @@ class TestBuild(object):
         except OSError:
             raise
 
-        context = Context()
-        context.archive = str(archive_dir)
-        context.cache = str(cache_file)
-        context.data = os.path.join(get_data_path(), "iris.csv")
-        context.overwrite = overwrite
-        context.schema = SortedDict({"0": "Name"})
-        context.verbose = True
+        datafile: str = os.path.join(get_data_path(), "iris.csv")
+        schema = SortedDict({"0": "Name"})
+        schemafile = os.path.join(archive_dir, syphon.schema.DEFAULT_FILE)
 
-        init(context)
-        archive(context)
+        syphon.init(schema, schemafile, overwrite)
+        syphon.archive(datafile, archive_dir, schemafile, overwrite=overwrite)
         assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
-        expected_frame = DataFrame(read_csv(context.data, index_col="Index"))
+        expected_frame = DataFrame(read_csv(datafile, index_col="Index"))
         expected_frame.sort_index(inplace=True)
 
-        if context.overwrite:
-            with open(context.cache, mode="w") as f:
+        if overwrite:
+            with open(cache_file, mode="w") as f:
                 f.write("content")
 
-        build(context)
+        syphon.build(archive_dir, cache_file, overwrite)
 
-        actual_frame = DataFrame(read_csv(context.cache, index_col="Index"))
+        actual_frame = DataFrame(read_csv(cache_file, index_col="Index"))
         actual_frame.sort_index(inplace=True)
 
         assert (
@@ -127,25 +121,20 @@ class TestBuild(object):
         except OSError:
             raise
 
-        context = Context()
-        context.archive = str(archive_dir)
-        context.cache = str(cache_file)
-        context.data = os.path.join(get_data_path(), "iris.csv")
-        context.overwrite = overwrite
-        context.schema = SortedDict()
+        datafile: str = os.path.join(get_data_path(), "iris.csv")
 
-        archive(context)
+        syphon.archive(datafile, archive_dir, overwrite=overwrite)
         assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
-        expected_frame = DataFrame(read_csv(context.data, dtype=str))
+        expected_frame = DataFrame(read_csv(datafile, dtype=str))
 
-        if context.overwrite:
-            with open(context.cache, mode="w") as f:
+        if overwrite:
+            with open(cache_file, mode="w") as f:
                 f.write("content")
 
-        build(context)
+        syphon.build(archive_dir, cache_file, overwrite)
 
-        actual_frame = DataFrame(read_csv(context.cache, dtype=str))
+        actual_frame = DataFrame(read_csv(cache_file, dtype=str))
 
         assert_frame_equal(expected_frame, actual_frame, check_like=True)
 
@@ -157,18 +146,13 @@ class TestBuild(object):
         except OSError:
             raise
 
-        context = Context()
-        context.archive = str(archive_dir)
-        context.cache = str(cache_file)
-        context.data = os.path.join(get_data_path(), "iris.csv")
-        context.overwrite = False
-        context.schema = SortedDict()
+        datafile: str = os.path.join(get_data_path(), "iris.csv")
 
-        archive(context)
+        syphon.archive(datafile, archive_dir, overwrite=True)
         assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
-        with open(context.cache, mode="w") as f:
+        with open(cache_file, mode="w") as f:
             f.write("content")
 
         with pytest.raises(FileExistsError):
-            build(context)
+            syphon.build(archive_dir, cache_file, overwrite=False)

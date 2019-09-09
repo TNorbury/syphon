@@ -14,9 +14,8 @@ from pandas.testing import assert_frame_equal
 from py._path.local import LocalPath
 from sortedcontainers import SortedDict, SortedList
 
-from syphon import Context
-from syphon.archive import archive
-from syphon.init import init
+import syphon
+import syphon.schema
 
 from .. import get_data_path
 
@@ -69,7 +68,7 @@ def archive_params(request: FixtureRequest) -> Tuple[str, SortedDict]:
         ),
     ]
 )
-def archive_meta_params(request: FixtureRequest) -> Tuple[str, str]:
+def archive_meta_params(request: FixtureRequest) -> Tuple[str, str, SortedDict]:
     return request.param
 
 
@@ -106,36 +105,35 @@ def _get_expected_paths(
 def test_archive(
     archive_params: Tuple[str, SortedDict], archive_dir: LocalPath, overwrite: bool
 ):
+    filename: str
+    schema: SortedDict
     filename, schema = archive_params
 
-    context = Context()
-    context.archive = str(archive_dir)
-    context.data = os.path.join(get_data_path(), filename)
-    context.overwrite = overwrite
-    context.schema = schema
+    datafile = os.path.join(get_data_path(), filename)
+    schemafile = os.path.join(archive_dir, syphon.schema.DEFAULT_FILE)
 
-    init(context)
+    syphon.init(schema, schemafile, overwrite)
 
-    expected_df = DataFrame(read_csv(context.data, dtype=str))
+    expected_df = DataFrame(read_csv(datafile, dtype=str))
     expected_df.sort_values(list(expected_df.columns), inplace=True)
     expected_df.reset_index(drop=True, inplace=True)
 
     expected_paths: SortedList = _get_expected_paths(
-        context.archive, schema, expected_df, filename
+        archive_dir, schema, expected_df, filename
     )
 
-    if context.overwrite:
+    if overwrite:
         for e in expected_paths:
             os.makedirs(os.path.dirname(e), exist_ok=True)
             with open(e, mode="w") as fd:
                 fd.write("content")
 
-    archive(context)
+    syphon.archive(datafile, archive_dir, schemafile, overwrite=overwrite)
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
     actual_frame = DataFrame()
     actual_paths = SortedList()
-    for root, _, files in os.walk(context.archive):
+    for root, _, files in os.walk(archive_dir):
         for f in files:
             if ".csv" in f:
                 filepath: str = os.path.join(root, f)
@@ -152,18 +150,20 @@ def test_archive(
 
 
 def test_archive_metadata(
-    archive_meta_params: Tuple[str, str, str], archive_dir: LocalPath, overwrite: bool
+    archive_meta_params: Tuple[str, str, SortedDict],
+    archive_dir: LocalPath,
+    overwrite: bool,
 ):
+    filename: str
+    expectedfilename: str
+    schema: SortedDict
     filename, expectedfilename, schema = archive_meta_params
 
-    context = Context()
-    context.archive = str(archive_dir)
-    context.data = os.path.join(get_data_path(), filename) + ".csv"
-    context.meta = os.path.join(get_data_path(), filename) + ".meta"
-    context.overwrite = overwrite
-    context.schema = schema
+    datafile = os.path.join(get_data_path(), filename) + ".csv"
+    metafile = os.path.join(get_data_path(), filename) + ".meta"
+    schemafile = os.path.join(archive_dir, syphon.schema.DEFAULT_FILE)
 
-    init(context)
+    syphon.init(schema, schemafile, overwrite)
 
     expected_df = DataFrame(
         # Read our dedicated *-combined.csv file instead of the import target.
@@ -173,21 +173,21 @@ def test_archive_metadata(
     expected_df.reset_index(drop=True, inplace=True)
 
     expected_paths: SortedList = _get_expected_paths(
-        context.archive, schema, expected_df, filename + ".csv"
+        archive_dir, schema, expected_df, filename + ".csv"
     )
 
-    if context.overwrite:
+    if overwrite:
         for e in expected_paths:
             os.makedirs(os.path.dirname(e))
             with open(e, mode="w") as fd:
                 fd.write("content")
 
-    archive(context)
+    syphon.archive(datafile, archive_dir, schemafile, metafile, overwrite)
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
     actual_df = DataFrame()
     actual_paths = SortedList()
-    for root, _, files in os.walk(context.archive):
+    for root, _, files in os.walk(archive_dir):
         for f in files:
             if ".csv" in f:
                 filepath: str = os.path.join(root, f)
@@ -206,33 +206,30 @@ def test_archive_metadata(
 def test_archive_no_schema(
     archive_params: Tuple[str, SortedDict], archive_dir: LocalPath, overwrite: bool
 ):
+    filename: str
     filename, _ = archive_params
 
-    context = Context()
-    context.archive = str(archive_dir)
-    context.data = os.path.join(get_data_path(), filename)
-    context.overwrite = overwrite
-    context.schema = SortedDict()
+    datafile = os.path.join(get_data_path(), filename)
 
-    expected_df = DataFrame(read_csv(context.data, dtype=str))
+    expected_df = DataFrame(read_csv(datafile, dtype=str))
     expected_df.sort_values(list(expected_df.columns), inplace=True)
     expected_df.reset_index(drop=True, inplace=True)
 
-    expected_paths = SortedList([os.path.join(context.archive, filename)])
+    expected_paths = SortedList([os.path.join(archive_dir, filename)])
 
-    if context.overwrite:
+    if overwrite:
         for e in expected_paths:
             path: LocalPath = archive_dir.new()
             path.mkdir(os.path.basename(os.path.dirname(e)))
             with open(e, mode="w") as fd:
                 fd.write("content")
 
-    archive(context)
+    syphon.archive(datafile, archive_dir, overwrite=overwrite)
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
     actual_frame = DataFrame()
     actual_paths = SortedList()
-    for root, _, files in os.walk(context.archive):
+    for root, _, files in os.walk(archive_dir):
         for f in files:
             if ".csv" in f:
                 filepath: str = os.path.join(root, f)
@@ -251,20 +248,19 @@ def test_archive_no_schema(
 def test_archive_fileexistserror(
     archive_params: Tuple[str, SortedDict], archive_dir: LocalPath
 ):
+    filename: str
+    schema: SortedDict
     filename, schema = archive_params
 
-    context = Context()
-    context.archive = str(archive_dir)
-    context.data = os.path.join(get_data_path(), filename)
-    context.overwrite = False
-    context.schema = schema
+    datafile = os.path.join(get_data_path(), filename)
+    schemafile = os.path.join(archive_dir, syphon.schema.DEFAULT_FILE)
 
-    init(context)
+    syphon.init(schema, schemafile, True)
 
-    expected_df = DataFrame(read_csv(context.data, dtype=str))
+    expected_df = DataFrame(read_csv(datafile, dtype=str))
 
     expected_paths: SortedList = _get_expected_paths(
-        context.archive, schema, expected_df, filename
+        archive_dir, schema, expected_df, filename
     )
 
     for e in expected_paths:
@@ -273,6 +269,6 @@ def test_archive_fileexistserror(
             f.write("content")
 
     with pytest.raises(FileExistsError):
-        archive(context)
+        syphon.archive(datafile, archive_dir, schemafile, overwrite=False)
 
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
