@@ -1,4 +1,4 @@
-"""syphon.tests.conftest.py
+"""tests.conftest.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)

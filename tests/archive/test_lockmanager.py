@@ -1,4 +1,4 @@
-"""syphon.tests.archive.test_lockmanager.py
+"""tests.archive.test_lockmanager.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)

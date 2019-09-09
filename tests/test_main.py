@@ -1,4 +1,4 @@
-"""syphon.tests.test_main.py
+"""tests.test_main.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
