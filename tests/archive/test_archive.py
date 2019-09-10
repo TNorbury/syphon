@@ -158,6 +158,17 @@ def test_archive(
     assert_captured_outerr(capsys, verbose, False)
 
 
+def test_archive_emptydata(
+    capsys: CaptureFixture, archive_dir: LocalPath, verbose: bool
+):
+    datafile = os.path.join(get_data_path(), "empty.csv")
+
+    syphon.archive(datafile, archive_dir, verbose=verbose)
+
+    assert_captured_outerr(capsys, verbose, False)
+    assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
+
+
 def test_archive_metadata(
     capsys: CaptureFixture,
     archive_meta_params: Tuple[str, str, SortedDict],
@@ -285,7 +296,86 @@ def test_archive_fileexistserror(
         with open(e, mode="w") as f:
             f.write("content")
 
-    with pytest.raises(FileExistsError):
+    with pytest.raises(FileExistsError, match=os.path.basename(datafile)):
         syphon.archive(datafile, archive_dir, schemafile, overwrite=False)
+
+    assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
+
+
+def test_archive_filenotfounderror_data(archive_dir: LocalPath):
+    datafile = os.path.join(get_data_path(), "nonexistantfile.csv")
+
+    with pytest.raises(FileNotFoundError, match="data files"):
+        syphon.archive(datafile, archive_dir)
+
+    assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
+
+
+def test_archive_filenotfounderror_meta(
+    archive_params: Tuple[str, SortedDict], archive_dir: LocalPath
+):
+    filename: str
+    schema: SortedDict
+    filename, schema = archive_params
+
+    datafile = os.path.join(get_data_path(), filename)
+    metafile = os.path.join(get_data_path(), "nonexistantfile.meta")
+
+    with pytest.raises(FileNotFoundError, match="metadata files"):
+        syphon.archive(datafile, archive_dir, meta_glob=metafile)
+
+    assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
+
+
+def test_archive_indexerror(
+    archive_meta_params: Tuple[str, str, SortedDict],
+    archive_dir: LocalPath,
+):
+    bad_column = "non_existent_column"
+
+    filename: str
+    expectedfilename: str
+    schema: SortedDict
+    filename, expectedfilename, schema = archive_meta_params
+
+    # Add a bad column.
+    schema["%d" % len(schema)] = bad_column
+
+    datafile = os.path.join(get_data_path(), filename) + ".csv"
+    metafile = os.path.join(get_data_path(), filename) + ".meta"
+    schemafile = os.path.join(archive_dir, syphon.schema.DEFAULT_FILE)
+
+    syphon.init(schema, schemafile, True)
+
+    with pytest.raises(IndexError, match=bad_column):
+        syphon.archive(datafile, archive_dir, schemafile, metafile, True)
+
+    assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
+
+
+def test_archive_valueerror(
+    archive_meta_params: Tuple[str, str, SortedDict],
+    archive_dir: LocalPath,
+):
+    filename: str
+    expectedfilename: str
+    schema: SortedDict
+    filename, expectedfilename, schema = archive_meta_params
+
+    datafile = os.path.join(get_data_path(), filename) + ".csv"
+    metafile = os.path.join(get_data_path(), filename) + ".inconsistent.meta"
+    schemafile = os.path.join(archive_dir, syphon.schema.DEFAULT_FILE)
+
+    syphon.init(schema, schemafile, True)
+
+    # Find the column that will be in the message.
+    metaframe = DataFrame(read_csv(metafile, dtype=str))
+    for column in metaframe.columns:
+        if len(metaframe[column].drop_duplicates().values) > 1:
+            break
+    del metaframe
+
+    with pytest.raises(ValueError, match=column):
+        syphon.archive(datafile, archive_dir, schemafile, metafile, True)
 
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
