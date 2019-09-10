@@ -45,55 +45,51 @@ def main(args: Optional[List[str]] = None) -> int:
         print(__version__)
         return 0
 
-    try:
-        # Handle each subcommand.
-        if getattr(parsed_args, "archive", False):
-            archive_dirpath: str = os.path.abspath(parsed_args.archive_destination)
-            schema_filepath: str = os.path.join(archive_dirpath, schema.DEFAULT_FILE)
-            archive(
-                parsed_args.data,
-                archive_dirpath,
-                schema_filepath if os.path.exists(schema_filepath) else None,
-                parsed_args.meta,
-                parsed_args.force,
-                parsed_args.verbose,
+    # Handle each subcommand.
+    if getattr(parsed_args, "archive", False):
+        archive_dirpath: str = os.path.abspath(parsed_args.archive_destination)
+        schema_filepath: str = os.path.join(archive_dirpath, schema.DEFAULT_FILE)
+        archive(
+            parsed_args.data,
+            archive_dirpath,
+            schema_filepath if os.path.exists(schema_filepath) else None,
+            parsed_args.metadata,
+            parsed_args.force,
+            parsed_args.verbose,
+        )
+    elif getattr(parsed_args, "build", False):
+        build(
+            os.path.abspath(parsed_args.build_source),
+            os.path.abspath(parsed_args.build_destination),
+            parsed_args.force,
+            parsed_args.verbose,
+        )
+    elif getattr(parsed_args, "check", False):
+        checksum_file: Optional[str] = parsed_args.check_source
+        return int(
+            not check(
+                os.path.abspath(parsed_args.check_target),
+                checksum_file
+                if checksum_file is None
+                else os.path.abspath(checksum_file),
+                verbose=parsed_args.verbose,
             )
-        elif getattr(parsed_args, "build", False):
-            build(
-                os.path.abspath(parsed_args.build_source),
-                os.path.abspath(parsed_args.build_destination),
-                parsed_args.force,
-                parsed_args.verbose,
-            )
-        elif getattr(parsed_args, "check", False):
-            checksum_file: Optional[str] = parsed_args.check_source
-            return int(
-                not check(
-                    os.path.abspath(parsed_args.check_target),
-                    checksum_file
-                    if checksum_file is None
-                    else os.path.abspath(checksum_file),
-                    verbose=parsed_args.verbose,
-                )
-            )
-        elif getattr(parsed_args, "init", False):
-            schema = SortedDict()
-            for (i, header) in zip(
-                range(0, len(parsed_args.headers)), parsed_args.headers
-            ):
-                schema["%d" % i] = header
+        )
+    elif getattr(parsed_args, "init", False):
+        new_schema = SortedDict()
+        for (i, header) in zip(
+            range(0, len(parsed_args.headers)), parsed_args.headers
+        ):
+            new_schema.update(**{"%d" % i: header})
 
-            init(
-                schema,
-                os.path.join(
-                    os.path.abspath(parsed_args.init_destination), schema.DEFAULT_FILE
-                ),
-                parsed_args.force,
-                parsed_args.verbose,
-            )
-    except Exception as err:
-        print(str(err))
-        return 1
+        init(
+            new_schema,
+            os.path.join(
+                os.path.abspath(parsed_args.init_destination), schema.DEFAULT_FILE
+            ),
+            parsed_args.force,
+            parsed_args.verbose,
+        )
 
     return 0
 
