@@ -8,6 +8,7 @@ import os
 from typing import Tuple
 
 import pytest
+from _pytest.capture import CaptureFixture
 from _pytest.fixtures import FixtureRequest
 from pandas import DataFrame, concat, read_csv
 from pandas.testing import assert_frame_equal
@@ -18,6 +19,7 @@ import syphon
 import syphon.schema
 
 from .. import get_data_path
+from ..assert_utils import assert_captured_outerr
 
 
 @pytest.fixture(
@@ -103,7 +105,11 @@ def _get_expected_paths(
 
 
 def test_archive(
-    archive_params: Tuple[str, SortedDict], archive_dir: LocalPath, overwrite: bool
+    capsys: CaptureFixture,
+    archive_params: Tuple[str, SortedDict],
+    archive_dir: LocalPath,
+    overwrite: bool,
+    verbose: bool,
 ):
     filename: str
     schema: SortedDict
@@ -128,7 +134,9 @@ def test_archive(
             with open(e, mode="w") as fd:
                 fd.write("content")
 
-    syphon.archive(datafile, archive_dir, schemafile, overwrite=overwrite)
+    syphon.archive(
+        datafile, archive_dir, schemafile, overwrite=overwrite, verbose=verbose
+    )
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
     actual_frame = DataFrame()
@@ -147,12 +155,15 @@ def test_archive(
 
     assert expected_paths == actual_paths
     assert_frame_equal(expected_df, actual_frame)
+    assert_captured_outerr(capsys, verbose, False)
 
 
 def test_archive_metadata(
+    capsys: CaptureFixture,
     archive_meta_params: Tuple[str, str, SortedDict],
     archive_dir: LocalPath,
     overwrite: bool,
+    verbose: bool,
 ):
     filename: str
     expectedfilename: str
@@ -182,7 +193,7 @@ def test_archive_metadata(
             with open(e, mode="w") as fd:
                 fd.write("content")
 
-    syphon.archive(datafile, archive_dir, schemafile, metafile, overwrite)
+    syphon.archive(datafile, archive_dir, schemafile, metafile, overwrite, verbose)
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
     actual_df = DataFrame()
@@ -201,10 +212,15 @@ def test_archive_metadata(
 
     assert expected_paths == actual_paths
     assert_frame_equal(expected_df, actual_df)
+    assert_captured_outerr(capsys, verbose, False)
 
 
 def test_archive_no_schema(
-    archive_params: Tuple[str, SortedDict], archive_dir: LocalPath, overwrite: bool
+    capsys: CaptureFixture,
+    archive_params: Tuple[str, SortedDict],
+    archive_dir: LocalPath,
+    overwrite: bool,
+    verbose: bool,
 ):
     filename: str
     filename, _ = archive_params
@@ -224,7 +240,7 @@ def test_archive_no_schema(
             with open(e, mode="w") as fd:
                 fd.write("content")
 
-    syphon.archive(datafile, archive_dir, overwrite=overwrite)
+    syphon.archive(datafile, archive_dir, overwrite=overwrite, verbose=verbose)
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
     actual_frame = DataFrame()
@@ -243,6 +259,7 @@ def test_archive_no_schema(
 
     assert expected_paths == actual_paths
     assert_frame_equal(expected_df, actual_frame)
+    assert_captured_outerr(capsys, verbose, False)
 
 
 def test_archive_fileexistserror(

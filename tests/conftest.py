@@ -29,12 +29,12 @@ def pytest_addoption(parser: Parser):
 
 
 def pytest_configure(config: Config):
-    from os import environ
+    import os
 
     if config.option.help:
         return
 
-    random.seed(a=int(environ["PYTHONHASHSEED"]))
+    random.seed(a=int(os.environ["PYTHONHASHSEED"]))
 
 
 def pytest_collection_modifyitems(config: Config, items: List[Item]):
@@ -131,4 +131,9 @@ def random_metadata(request: FixtureRequest, import_dir: LocalPath) -> List[str]
 
 @pytest.fixture(params=[True, False])
 def overwrite(request: FixtureRequest) -> bool:
+    return request.param
+
+
+@pytest.fixture(params=[True, False])
+def verbose(request: FixtureRequest) -> bool:
     return request.param

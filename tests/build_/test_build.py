@@ -7,6 +7,7 @@
 import os
 
 import pytest
+from _pytest.capture import CaptureFixture
 from pandas import DataFrame, read_csv
 from pandas.testing import assert_frame_equal
 from py._path.local import LocalPath
@@ -16,6 +17,7 @@ import syphon
 import syphon.schema
 
 from .. import get_data_path
+from ..assert_utils import assert_captured_outerr
 
 
 class TestBuild(object):
@@ -27,7 +29,12 @@ class TestBuild(object):
             raise
 
     def test_build_iris(
-        self, archive_dir: LocalPath, cache_file: LocalPath, overwrite: bool
+        self,
+        capsys: CaptureFixture,
+        archive_dir: LocalPath,
+        cache_file: LocalPath,
+        overwrite: bool,
+        verbose: bool,
     ):
         try:
             TestBuild._delete_cache(str(cache_file))
@@ -51,7 +58,7 @@ class TestBuild(object):
             with open(cache_file, mode="w") as f:
                 f.write("content")
 
-        syphon.build(archive_dir, cache_file, overwrite)
+        syphon.build(archive_dir, cache_file, overwrite, verbose)
 
         actual_frame = DataFrame(read_csv(cache_file, index_col="Index"))
         actual_frame.sort_index(inplace=True)
@@ -110,9 +117,15 @@ class TestBuild(object):
                             )
 
         assert_frame_equal(expected_frame, actual_frame, check_exact=True)
+        assert_captured_outerr(capsys, verbose, False)
 
     def test_build_iris_no_schema(
-        self, archive_dir: LocalPath, cache_file: LocalPath, overwrite: bool
+        self,
+        capsys: CaptureFixture,
+        archive_dir: LocalPath,
+        cache_file: LocalPath,
+        overwrite: bool,
+        verbose: bool,
     ):
         try:
             TestBuild._delete_cache(str(cache_file))
@@ -132,11 +145,12 @@ class TestBuild(object):
             with open(cache_file, mode="w") as f:
                 f.write("content")
 
-        syphon.build(archive_dir, cache_file, overwrite)
+        syphon.build(archive_dir, cache_file, overwrite, verbose)
 
         actual_frame = DataFrame(read_csv(cache_file, dtype=str))
 
         assert_frame_equal(expected_frame, actual_frame, check_like=True)
+        assert_captured_outerr(capsys, verbose, False)
 
     def test_build_fileexistserror(self, archive_dir: LocalPath, cache_file: LocalPath):
         try:
