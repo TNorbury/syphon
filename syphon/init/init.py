@@ -25,7 +25,7 @@ def init(
         OSError: File operation error. Error type raised may be
             a subclass of OSError.
     """
-    from syphon.schema import save
+    from ..schema import save
 
     save(schema, schema_filepath, overwrite)
 
