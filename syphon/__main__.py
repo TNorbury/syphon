@@ -33,7 +33,7 @@ def main(args: Optional[List[str]] = None) -> int:
 
     if len(args) <= 1:
         parser.print_usage()
-        return 0
+        return 1
 
     parsed_args: Namespace = parser.parse_args(args[1:])
 
