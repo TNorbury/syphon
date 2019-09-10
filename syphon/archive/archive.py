@@ -68,7 +68,7 @@ def _write_filtered_data(
 
         if exists(target_filename) and not overwrite:
             raise FileExistsError(
-                "Archive error: file already exists @ " "{}".format(target_filename)
+                "Archive error: file already exists @ {}".format(target_filename)
             )
 
         makedirs(path, exist_ok=True)
@@ -116,7 +116,7 @@ def _archive(
             )
         except InconsistentMetadataError as err:
             raise ValueError(
-                "More than one value exists under the {} column.".format(err.column)
+                'More than one value exists under the "{}" column.'.format(err.column)
             )
 
         if meta_frame is not None:
