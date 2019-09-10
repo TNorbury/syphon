@@ -4,19 +4,11 @@
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
 
 """
-from sys import argv
+import sys
 from typing import List, Optional
 
 
-def bootstrap(args: Optional[List[str]] = None):
-    """Main entry point facade."""
-    try:
-        exit(_main(argv if args is None else args))
-    except KeyboardInterrupt:
-        raise SystemExit(2)
-
-
-def _main(args: List[str]) -> int:
+def main(args: Optional[List[str]] = None) -> int:
     """Main entry point.
 
     Returns:
@@ -33,6 +25,9 @@ def _main(args: List[str]) -> int:
     from .build_ import build
     from .check import check
     from .init import init
+
+    if args is None:
+        args = sys.argv
 
     parser: ArgumentParser = get_parser()
 
@@ -104,4 +99,7 @@ def _main(args: List[str]) -> int:
 
 
 if __name__ == "__main__":
-    bootstrap(argv)
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(2)

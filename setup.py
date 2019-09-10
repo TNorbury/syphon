@@ -40,7 +40,7 @@ PROJECT_URLS = {
 
 INSTALL_REQUIRES = ["pandas<0.26", "sortedcontainers~=2.1"]
 
-ENTRY_POINTS = {"console_scripts": ["syphon=syphon.__main__:bootstrap"]}
+ENTRY_POINTS = {"console_scripts": ["syphon=syphon.__main__:main"]}
 
 setup(
     name="syphon",
