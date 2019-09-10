@@ -126,9 +126,6 @@ def _archive(
 
         filtered_data: List[DataFrame] = datafilter(schema, data_frame)
 
-        if len(filtered_data) == 0:
-            filtered_data = [data_frame]
-
         _write_filtered_data(
             archive_dir, schema, filtered_data, datafile, overwrite, verbose
         )
