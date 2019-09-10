@@ -64,8 +64,6 @@ def _write_filtered_data(
     for data in filtered_data:
         path: Optional[str] = None
         try:
-            if archive is None:
-                raise AssertionError()
             path = resolve_path(archive, schema, data)
         except IndexError:
             lockman.release_all()
