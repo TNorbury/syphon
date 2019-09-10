@@ -189,15 +189,5 @@ def archive(
 
     try:
         _archive(archive_dir, schema, data_list, meta_list, overwrite, verbose)
-    except FileExistsError:
-        raise
-    except IndexError:
-        raise
-    except OSError:
-        raise
-    except ValueError:
-        raise
-    except Exception:
-        raise
     finally:
         lock_manager.release_all()
