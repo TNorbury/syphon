@@ -1,10 +1,13 @@
-"""syphon.check.check.py
+"""syphon.check.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
 
 """
 from typing import Callable, Optional
+
+
+DEFAULT_FILE = ".sha256sums"
 
 
 def check(
@@ -31,45 +34,47 @@ def check(
     Returns:
         True if the cache file passed the integrity check, False otherwise.
     """
-    from hashlib import sha256
-    from os.path import exists, join, split
+    import os
 
-    from . import DEFAULT_FILE
-    from .fileparse import get_checksum, MalformedLineError
+    from . import errors, util
 
-    cachepath, cachefile = split(cache_filepath)
-    sums_filepath = (
-        join(cachepath, DEFAULT_FILE)
-        if checksum_filepath is None
-        else checksum_filepath
-    )
+    cachepath, cachefile = os.path.split(cache_filepath)
 
-    if not exists(sums_filepath):
+    if checksum_filepath is None:
+        checksum_filepath = os.path.join(cachepath, DEFAULT_FILE)
+
+    if not os.path.exists(checksum_filepath):
         if verbose:
-            print("No file exists @ {}".format(sums_filepath))
+            print("No file exists @ {}".format(checksum_filepath))
         return False
+
+    expected_entry: Optional[util.HashEntry] = None
+    actual_entry = util.HashEntry(cache_filepath)
 
     try:
-        expected_checksum: str = get_checksum(
-            sums_filepath, checksum_line_match, checksum_line_reduce
-        )
+        with util.HashFile(checksum_filepath) as hf:
+            for next_entry in hf.entries():
+                if next_entry.filepath == actual_entry.filepath:
+                    expected_entry = next_entry
+                    break
     except OSError:
         if verbose:
-            print("Error reading checksum file @ {}".format(sums_filepath))
+            print("Error reading hash file @ {}".format(checksum_filepath))
         return False
-    except MalformedLineError as err:
+    except errors.MalformedLineError as err:
         if verbose:
-            print('Error parsing checksum line "{}"'.format(err.line))
+            print('Error parsing hash entry "{}"'.format(err.line))
+        return False
+    finally:
+        del hf
+
+    if expected_entry is None:
+        if verbose:
+            print(
+                'No entry for file "{0}" found in "{1}"'.format(
+                    cache_filepath, checksum_filepath
+                )
+            )
         return False
 
-    hashobj = sha256()
-    try:
-        with open(cache_filepath, "rb") as fd:
-            hashobj.update(fd.read())
-    except OSError:
-        if verbose:
-            print("Error reading cache @ {}".format(cache_filepath))
-        return False
-    actual_checksum: str = hashobj.hexdigest()
-
-    return expected_checksum == actual_checksum
+    return expected_entry.hash == actual_entry.hash
