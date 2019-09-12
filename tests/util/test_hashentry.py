@@ -13,7 +13,7 @@ import pytest
 from py._path.local import LocalPath
 from _pytest.fixtures import FixtureRequest
 
-from syphon.util import DEFAULT_HASH, HashEntry, SplitResult
+from syphon.util import DEFAULT_HASH, HashEntry
 
 from .. import get_data_path
 
@@ -106,6 +106,15 @@ def test_hashentry_hash(
     with open(cache_file, "r") as fd:
         hash_type.update(bytes(fd.read(), fd.encoding))
     expected_hash: str = hash_type.hexdigest()
+
+    assert expected_hash == entry.hash
+
+
+def test_hashentry_hash_uses_cache():
+    expected_hash = "cache content"
+
+    entry = HashEntry("datafile")
+    entry._hash_cache = expected_hash
 
     assert expected_hash == entry.hash
 
