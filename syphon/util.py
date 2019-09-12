@@ -82,7 +82,7 @@ class HashEntry(object):
 
     @hasher.setter
     def hasher(self, value: HASH):
-        if not isinstance(value, HASH) or not issubclass(value.__class__, HASH):
+        if not isinstance(value, HASH):
             raise TypeError("Expected {0}, received {1}".format(HASH, type(value)))
         self._hash_obj = hashlib.new(value.name)
 
