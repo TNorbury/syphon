@@ -1,9 +1,10 @@
-"""syphon.build_.build.py
+"""syphon.build.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
 
 """
+
 
 LINUX_HIDDEN_CHAR: str = "."
 
@@ -28,22 +29,21 @@ def build(
         FileExistsError: Cache file exists and overwrite is
             False.
     """
-    from os import walk
-    from os.path import exists, join
+    import os
     from typing import Tuple
 
     from pandas import DataFrame, read_csv
 
     file_list = list()
 
-    if exists(cache_filepath) and not overwrite:
+    if os.path.exists(cache_filepath) and not overwrite:
         raise FileExistsError("Cache file already exists")
 
-    for root, _, files in walk(archive_dir):
+    for root, _, files in os.walk(archive_dir):
         for file in files:
             # skip linux-style hidden files
             if file[0] is not LINUX_HIDDEN_CHAR:
-                file_list.append(join(root, file))
+                file_list.append(os.path.join(root, file))
 
     cache = DataFrame()
     for file in file_list:

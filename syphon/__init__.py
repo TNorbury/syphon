@@ -7,7 +7,7 @@
 """
 from . import _version
 from .archive import archive
-from .build_ import build
+from .build import build
 from .check import check
 from .init import init
 

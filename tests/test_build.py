@@ -1,4 +1,4 @@
-"""tests.build_.test_build.py
+"""tests.test_build.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
@@ -16,8 +16,8 @@ from sortedcontainers import SortedDict
 import syphon
 import syphon.schema
 
-from .. import get_data_path
-from ..assert_utils import assert_captured_outerr
+from . import get_data_path
+from .assert_utils import assert_captured_outerr
 
 
 class TestBuild(object):
