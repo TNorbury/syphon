@@ -5,7 +5,6 @@
 
 """
 import hashlib
-import os
 from _hashlib import HASH
 from _io import _IOBase
 from typing import Callable, Iterator, List, NamedTuple, Optional, Tuple
@@ -149,33 +148,48 @@ class HashEntry(object):
         return result
 
 
-class HashFile(object):
-    def __init__(self, filepath: str, open_mode: str = "r"):
-        """A wrapper around a hash file.
+class _OpenHashFile(object):
+    def __init__(self, file_obj: _IOBase):
+        self._file_obj: _IOBase = file_obj
+        self.line_split: Optional[Callable[[str], Optional[SplitResult]]] = None
 
-        Exposes a method to iterate through HashEntries.
-        """
-        super().__init__()
-        self._file_obj: Optional[_IOBase] = None
-        self._filename: str = os.path.basename(filepath)
-        self._line_split: Optional[Callable[[str], Optional[SplitResult]]] = None
-        self._open_mode: str = open_mode
-        self.filepath: str = filepath
-
-    def __enter__(self, *args, **kwargs) -> "HashFile":
-        if self._file_obj is not None:
-            return self
-        self._file_obj = open(self.filepath, self._open_mode)
+    def __iter__(self) -> "_OpenHashFile":
         return self
 
-    def __exit__(self, *args, **kwargs) -> None:
-        if self._file_obj is not None:
-            self._file_obj.close()
-            self._file_obj = None
-        return None
+    def __next__(self) -> Iterator[HashEntry]:
+        return self.entries(self.line_split)
 
-    def entries(self) -> Iterator[HashEntry]:
-        if self._file_obj is None:
-            raise errors.FileNotOpenError(self.filepath)
+    def close(self) -> None:
+        self._file_obj.close()
+
+    def entries(
+        self, line_split: Optional[Callable[[str], Optional[SplitResult]]] = None
+    ) -> Iterator[HashEntry]:
         for line in self._file_obj:
-            yield HashEntry.from_str(line, self._line_split)
+            yield HashEntry.from_str(line, line_split)
+
+
+class HashFile(object):
+    def __init__(self, filepath: str, open_mode: str = "rt"):
+        """A hash file context manager.
+
+        Args:
+            filepath: Path to a file containing hash entries.
+            open_mode: Flags to send to the open function.
+        """
+        super().__init__()
+        self._file: Optional[_OpenHashFile] = None
+        self.filepath: str = filepath
+        self.open_mode: str = open_mode
+
+    def __enter__(self, *args, **kwargs) -> _OpenHashFile:
+        if self._file is not None:
+            return self._file
+        self._file = _OpenHashFile(open(self.filepath, self.open_mode))
+        return self._file
+
+    def __exit__(self, *args, **kwargs) -> None:
+        if self._file is not None:
+            self._file.close()
+            self._file = None
+        return None

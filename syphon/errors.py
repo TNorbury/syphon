@@ -10,9 +10,3 @@ class MalformedLineError(BaseException):
     def __init__(self, line: str):
         super().__init__()
         self.line = line
-
-
-class FileNotOpenError(OSError):
-    def __init__(self, file: str):
-        super().__init__()
-        self.file = file
