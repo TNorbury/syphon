@@ -7,13 +7,14 @@
 import hashlib
 import os
 from _hashlib import HASH
-from typing import AnyStr, Optional, Union
+from typing import AnyStr, List, Optional, Union
 
 import pytest
 from py._path.local import LocalPath
 from _pytest.fixtures import FixtureRequest
 
-from syphon.util import DEFAULT_HASH, HashEntry
+from syphon.errors import MalformedLineError
+from syphon.util import DEFAULT_HASH, HashEntry, SplitResult
 
 from .. import get_data_path
 
@@ -156,3 +157,38 @@ def test_hashentry_hasher_setter_raises_typeerror():
 
     assert pre_hash == entry._hash_obj.digest()
     assert pre_hash_name == entry.hasher.name
+
+
+def test_hashentry_from_str(
+    cache_file: LocalPath, data_file: str, binary_hash: bool, hash_type: Optional[HASH]
+):
+    target = LocalPath(os.path.join(get_data_path(), data_file))
+    _copy(target, cache_file)
+    assert os.path.exists(cache_file)
+
+    expected_entry = HashEntry(str(cache_file), binary=binary_hash, hash_obj=hash_type)
+    actual_entry = HashEntry.from_str(str(expected_entry))
+    assert str(expected_entry) == actual_entry._raw_entry
+
+    assert expected_entry.filepath == actual_entry.filepath
+    assert expected_entry.hash == actual_entry.hash
+
+
+def test_hashentry_from_str_line_split():
+    def line_split(line: str) -> SplitResult:
+        found: List[str] = line.split(" ")
+        return SplitResult(hash=found[0], file=found[1], binary=True)
+
+    entry = HashEntry.from_str("hash datafile", line_split)
+    assert entry._hash_cache == "hash"
+    assert entry.filepath == "datafile"
+    assert entry.binary
+
+
+def test_hashentry_from_str_raises_malformedlineerror():
+    bad_entry = "this is a malformed entry\n"
+
+    with pytest.raises(MalformedLineError) as err:
+        HashEntry.from_str(bad_entry)
+
+    assert bad_entry.strip() == err.value.line
