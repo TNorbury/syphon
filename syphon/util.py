@@ -8,7 +8,7 @@ import hashlib
 import os
 from _hashlib import HASH
 from _io import _IOBase
-from typing import Callable, Iterator, List, NamedTuple, Optional
+from typing import Callable, Iterator, List, NamedTuple, Optional, Tuple
 
 from . import errors
 
@@ -101,17 +101,21 @@ class HashEntry(object):
     def _default_line_split(line: str) -> Optional[SplitResult]:
         import re
 
-        captures: List[str] = re.findall(r"^([a-fA-F0-9]+)\s+(.*)$", line.strip())
-        if len(captures) == 0:
-            return None
-        if len(captures[0]) == 2:
-            filepath: str = captures[0][1]
+        captures: List[Tuple[str, str]] = re.findall(
+            r"^([a-fA-F0-9]+)\s+(.*)$", line.strip()
+        )
+        try:
+            match_tuple: Tuple[str, str] = captures.pop(0)
+            filepath: str = match_tuple[1]
             is_binary: bool = filepath.startswith("*")
             return SplitResult(
-                hash=captures[0][0],
+                hash=match_tuple[0],
                 file=filepath[1:] if is_binary else filepath,
                 binary=is_binary,
             )
+        except IndexError:
+            pass
+
         return None
 
     @staticmethod
