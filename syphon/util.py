@@ -165,6 +165,16 @@ class _OpenHashFile(object):
     def entries(
         self, line_split: Optional[Callable[[str], Optional[SplitResult]]] = None
     ) -> Iterator[HashEntry]:
+        """Iterate through all file entries.
+
+        Args:
+            line_split: A callable object that returns a SplitResult from a given line
+                or None if the line is in an unexpected format. Returning None raises
+                a MalformedLineError.
+
+        Returns:
+            Iterator[HashEntry]: An iterator over all file HashEntries.
+        """
         for line in self._file_obj:
             yield HashEntry.from_str(line, line_split)
 
