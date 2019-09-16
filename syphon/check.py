@@ -6,6 +6,8 @@
 """
 from typing import Callable, Optional
 
+from .util import SplitResult
+
 
 DEFAULT_FILE = ".sha256sums"
 
@@ -13,8 +15,7 @@ DEFAULT_FILE = ".sha256sums"
 def check(
     cache_filepath: str,
     checksum_filepath: Optional[str] = None,
-    checksum_line_match: Optional[Callable[[str], bool]] = None,
-    checksum_line_reduce: Optional[Callable[[str], Optional[str]]] = None,
+    checksum_line_split: Optional[Callable[[str], Optional[SplitResult]]] = None,
     verbose: bool = False,
 ) -> bool:
     """Verify the integrity of the built cache file.
@@ -24,11 +25,9 @@ def check(
         checksum_filepath: Absolute path to a file containing a SHA256 sum of the
             cache. If not given, then the default is calculated by joining the cache
             directory with `syphon.check.DEFAULT_FILE`.
-        checksum_line_match: A callable object that acts as a predicate on lines of the
-                checksum file. The predicate returns True if and only if the given
-                line contains the checksum of the cache file.
-        checksum_line_reduce: A callable object that returns the checksum from a given
-            line or None if the line is in an unexpected format.
+        checksum_line_split: A callable object that returns a `syphon.util.SplitResult`
+            from a given line or None if the line is in an unexpected format. Returning
+            None raises a MalformedLineError.
         verbose: Whether to print what is being done to the standard output.
 
     Returns:
@@ -38,9 +37,8 @@ def check(
 
     from . import errors, util
 
-    cachepath, cachefile = os.path.split(cache_filepath)
-
     if checksum_filepath is None:
+        cachepath, cachefile = os.path.split(cache_filepath)
         checksum_filepath = os.path.join(cachepath, DEFAULT_FILE)
 
     if not os.path.exists(checksum_filepath):
@@ -53,7 +51,7 @@ def check(
 
     try:
         with util.HashFile(checksum_filepath) as hf:
-            for next_entry in hf.entries():
+            for next_entry in hf.entries(checksum_line_split):
                 if next_entry.filepath == actual_entry.filepath:
                     expected_entry = next_entry
                     break
