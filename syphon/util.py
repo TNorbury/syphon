@@ -196,8 +196,15 @@ class _OpenHashFile(object):
         Returns:
             Iterator[HashEntry]: An iterator over all file HashEntries.
         """
-        for line in self._file_obj:
+        while True:
+            line = self._file_obj.readline()
+            if len(line) == 0:
+                break
             yield HashEntry.from_str(line, line_split, self.hash_type)
+
+    def tell(self) -> int:
+        """Return the current stream position."""
+        return self._file_obj.tell()
 
 
 class HashFile(object):

@@ -63,3 +63,14 @@ def test_openhashfile_items_are_hashentries(tmpdir: LocalPath):
             expected = expected_entries.pop(0)
             assert isinstance(actual, syphon.util.HashEntry)
             assert str(expected) == str(actual)
+
+
+def test_openhashfile_tell(cache_file: LocalPath):
+    cache_file.write(rand_string())
+
+    openhashfile = syphon.util._OpenHashFile(cache_file.open("r+t"), "")
+    assert openhashfile.tell() == 0
+    assert openhashfile.tell() == openhashfile._file_obj.tell()
+
+    line = openhashfile._file_obj.readline()
+    assert openhashfile._file_obj.tell() == len(line)
