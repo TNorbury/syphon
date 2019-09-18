@@ -1,16 +1,16 @@
-"""syphon.util.py
+"""syphon.hash.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
 
 """
 import hashlib
-from _hashlib import HASH
-from _io import _IOBase
 from typing import Callable, Iterator, List, NamedTuple, Optional, Tuple
 
-from . import errors
+from _hashlib import HASH
+from _io import _IOBase
 
+from .errors import MalformedLineError
 
 DEFAULT_HASH_TYPE: str = hashlib.sha256().name
 
@@ -163,7 +163,7 @@ class HashEntry(object):
 
         split = line_split(entry)
         if split is None:
-            raise errors.MalformedLineError(entry.strip())
+            raise MalformedLineError(entry.strip())
 
         result = HashEntry(split.file, binary=split.binary, hash_type=hash_type)
         result._hash_cache = split.hash

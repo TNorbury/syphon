@@ -1,28 +1,28 @@
-"""tests/util/test_openhashfile.py
+"""tests.hash.test_openhashfile.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
 
 """
 import os
-from _io import _IOBase
 from typing import List, Optional
 
 from py._path.local import LocalPath
 
-import syphon.util
+import syphon.hash
+from _io import _IOBase
 
 from .. import get_data_path, rand_string
 
 
 def test_openhashfile_init(cache_file: LocalPath, hash_type: Optional[str]):
     if hash_type is None:
-        hash_type = syphon.util.DEFAULT_HASH_TYPE
+        hash_type = syphon.hash.DEFAULT_HASH_TYPE
 
     cache_file.write(rand_string())
 
     file_obj: _IOBase = cache_file.open("r+t")
-    openhashfile = syphon.util._OpenHashFile(file_obj, hash_type)
+    openhashfile = syphon.hash._OpenHashFile(file_obj, hash_type)
     try:
         assert file_obj.fileno() == openhashfile._file_obj.fileno()
         assert not openhashfile._file_obj.closed
@@ -36,7 +36,7 @@ def test_openhashfile_init(cache_file: LocalPath, hash_type: Optional[str]):
 def test_openhashfile_close(cache_file: LocalPath):
     cache_file.write(rand_string())
 
-    openhashfile = syphon.util._OpenHashFile(cache_file.open("r+t"), "")
+    openhashfile = syphon.hash._OpenHashFile(cache_file.open("r+t"), "")
 
     openhashfile.close()
     try:
@@ -49,26 +49,26 @@ def test_openhashfile_items_are_hashentries(tmpdir: LocalPath):
     target_hashfile: LocalPath = tmpdir.join("sha256sums")
 
     # Generate hashfile content.
-    expected_entries: List[syphon.util.HashEntry] = [
-        syphon.util.HashEntry(os.path.join(get_data_path(), "empty.csv")),
-        syphon.util.HashEntry(os.path.join(get_data_path(), "iris.csv")),
-        syphon.util.HashEntry(os.path.join(get_data_path(), "iris_plus.csv")),
+    expected_entries: List[syphon.hash.HashEntry] = [
+        syphon.hash.HashEntry(os.path.join(get_data_path(), "empty.csv")),
+        syphon.hash.HashEntry(os.path.join(get_data_path(), "iris.csv")),
+        syphon.hash.HashEntry(os.path.join(get_data_path(), "iris_plus.csv")),
     ]
     hashfile_content = "\n".join([str(e) for e in expected_entries])
     target_hashfile.write(hashfile_content)
 
     # Iterate through the hash file entries.
-    with syphon.util.HashFile(target_hashfile) as openfile:
+    with syphon.hash.HashFile(target_hashfile) as openfile:
         for actual in openfile:
             expected = expected_entries.pop(0)
-            assert isinstance(actual, syphon.util.HashEntry)
+            assert isinstance(actual, syphon.hash.HashEntry)
             assert str(expected) == str(actual)
 
 
 def test_openhashfile_tell(cache_file: LocalPath):
     cache_file.write(rand_string())
 
-    openhashfile = syphon.util._OpenHashFile(cache_file.open("r+t"), "")
+    openhashfile = syphon.hash._OpenHashFile(cache_file.open("r+t"), "")
     assert openhashfile.tell() == 0
     assert openhashfile.tell() == openhashfile._file_obj.tell()
 

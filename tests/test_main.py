@@ -17,7 +17,6 @@ import syphon.schema
 
 from . import get_data_path
 
-
 SCHEMA = SortedDict({"0": "Species", "1": "PetalColor"})
 
 

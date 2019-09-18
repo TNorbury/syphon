@@ -1,4 +1,4 @@
-"""syphon.check.py
+"""syphon.core.check.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
@@ -6,8 +6,7 @@
 """
 from typing import Callable, Optional
 
-from .util import SplitResult
-
+from ..hash import SplitResult
 
 DEFAULT_FILE = ".sha256sums"
 
@@ -35,8 +34,8 @@ def check(
     """
     import os
 
-    from .errors import MalformedLineError
-    from .util import HashEntry, HashFile
+    from syphon.errors import MalformedLineError
+    from syphon.hash import HashEntry, HashFile
 
     if hash_filepath is None:
         cachepath, cachefile = os.path.split(cache_filepath)

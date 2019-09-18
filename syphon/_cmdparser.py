@@ -145,11 +145,7 @@ def get_parser() -> argparse.ArgumentParser:
     )
     help = "an optional file whose lines are whitespace-delimited, checksum-file pairs"
     check_parser.add_argument(
-        "check_source",
-        default=None,
-        help=help,
-        metavar="source",
-        nargs="?",
+        "check_source", default=None, help=help, metavar="source", nargs="?"
     )
     del help
 

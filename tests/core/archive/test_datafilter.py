@@ -1,4 +1,4 @@
-"""tests.archive.test_datafilter.py
+"""tests.core.archive.test_datafilter.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
@@ -11,9 +11,9 @@ from pandas import DataFrame, Series, concat
 from pandas.testing import assert_frame_equal
 from sortedcontainers import SortedDict
 
-from syphon.archive import datafilter
+from syphon.core.archive.datafilter import datafilter
 
-from .. import make_dataframe
+from ... import make_dataframe
 
 MAX_ROWS = 10
 MAX_COLS = 5

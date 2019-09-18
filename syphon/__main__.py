@@ -21,10 +21,10 @@ def main(args: Optional[List[str]] = None) -> int:
 
     from . import __version__, schema
     from ._cmdparser import get_parser
-    from .archive import archive
-    from .build import build
-    from .check import check
-    from .init import init
+    from .core.archive.archive import archive
+    from .core.build import build
+    from .core.check import check
+    from .core.init import init
 
     if args is None:
         args = sys.argv
@@ -77,9 +77,7 @@ def main(args: Optional[List[str]] = None) -> int:
         )
     elif getattr(parsed_args, "init", False):
         new_schema = SortedDict()
-        for (i, header) in zip(
-            range(0, len(parsed_args.headers)), parsed_args.headers
-        ):
+        for (i, header) in zip(range(0, len(parsed_args.headers)), parsed_args.headers):
             new_schema.update(**{"%d" % i: header})
 
         init(

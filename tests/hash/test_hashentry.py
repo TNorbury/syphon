@@ -1,4 +1,4 @@
-"""tests.util.test_hashentry.py
+"""tests.hash.test_hashentry.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
@@ -12,10 +12,9 @@ import pytest
 from py._path.local import LocalPath
 
 from syphon.errors import MalformedLineError
-from syphon.util import DEFAULT_HASH_TYPE, HashEntry, SplitResult
+from syphon.hash import DEFAULT_HASH_TYPE, HashEntry, SplitResult
 
 from .. import get_data_path, rand_string
-
 from . import _copy
 
 
@@ -95,9 +94,7 @@ def test_hashentry_hash_uses_cache():
 
 def test_hashentry_hashtype_getter(hash_type: Optional[str]):
     entry = HashEntry("datafile", hash_type=hash_type)
-    assert (
-        entry.hashtype == DEFAULT_HASH_TYPE if hash_type is None else hash_type
-    )
+    assert entry.hashtype == DEFAULT_HASH_TYPE if hash_type is None else hash_type
 
     assert entry.hashtype == entry.hashtype
 

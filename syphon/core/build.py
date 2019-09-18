@@ -1,4 +1,4 @@
-"""syphon.build.py
+"""syphon.core.build.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)

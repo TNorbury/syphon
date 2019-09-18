@@ -1,4 +1,4 @@
-"""tests.archive.test_filemap.py
+"""tests.core.archive.test_filemap.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
@@ -9,7 +9,7 @@ from typing import List
 
 from sortedcontainers import SortedDict, SortedList
 
-from syphon.archive import file_map
+from syphon.core.archive.filemap import filemap
 
 
 def test_filemap_loose_metadata(random_data: List[str], random_metadata: List[str]):
@@ -20,7 +20,7 @@ def test_filemap_loose_metadata(random_data: List[str], random_metadata: List[st
     for d in data:
         expected[d] = SortedList(meta)
 
-    actual: SortedDict = file_map(SortedList(data), SortedList(meta))
+    actual: SortedDict = filemap(SortedList(data), SortedList(meta))
 
     assert actual == expected
 
@@ -35,6 +35,6 @@ def test_filemap_data_metadata_pairs(random_data: List[str]):
         meta.append(new_file)
         expected[d] = [new_file]
 
-    actual: SortedDict = file_map(SortedList(data), SortedList(meta))
+    actual: SortedDict = filemap(SortedList(data), SortedList(meta))
 
     assert actual == expected

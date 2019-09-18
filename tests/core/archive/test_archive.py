@@ -1,4 +1,4 @@
-"""tests.archive.test_archive.py
+"""tests.core.archive.test_archive.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
@@ -18,8 +18,8 @@ from sortedcontainers import SortedDict, SortedList
 import syphon
 import syphon.schema
 
-from .. import get_data_path
-from ..assert_utils import assert_captured_outerr
+from ... import get_data_path
+from ...assert_utils import assert_captured_outerr
 
 
 @pytest.fixture(
@@ -328,8 +328,7 @@ def test_archive_filenotfounderror_meta(
 
 
 def test_archive_indexerror(
-    archive_meta_params: Tuple[str, str, SortedDict],
-    archive_dir: LocalPath,
+    archive_meta_params: Tuple[str, str, SortedDict], archive_dir: LocalPath
 ):
     bad_column = "non_existent_column"
 
@@ -354,8 +353,7 @@ def test_archive_indexerror(
 
 
 def test_archive_valueerror(
-    archive_meta_params: Tuple[str, str, SortedDict],
-    archive_dir: LocalPath,
+    archive_meta_params: Tuple[str, str, SortedDict], archive_dir: LocalPath
 ):
     filename: str
     expectedfilename: str

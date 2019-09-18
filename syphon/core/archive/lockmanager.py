@@ -1,10 +1,11 @@
-"""syphon.archive._lockmanager.py
+"""syphon.core.archive.lockmanager.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
 
 """
-from os.path import abspath
+import os
+from typing import List
 
 
 class LockManager(object):
@@ -16,8 +17,6 @@ class LockManager(object):
     """
 
     def __init__(self):
-        from typing import List
-
         super().__init__()
         self._filename = "#lock"
         self._locks: List[str] = list()
@@ -40,9 +39,7 @@ class LockManager(object):
             OSError: File operation error. Error type raised may be
                 a subclass of OSError.
         """
-        from os import remove
-
-        remove(filepath)
+        os.remove(filepath)
 
     @staticmethod
     def _touch(filepath: str):
@@ -52,10 +49,8 @@ class LockManager(object):
             OSError: File operation error. Error type raised may be
                 a subclass of OSError.
         """
-        from os import utime
-
         with open(filepath, "a"):
-            utime(filepath, None)
+            os.utime(filepath, None)
 
     def lock(self, path: str) -> str:
         """Create a lock file in a given directory.
@@ -70,9 +65,7 @@ class LockManager(object):
             OSError: File operation error. Error type raised may be
                 a subclass of OSError.
         """
-        from os.path import join
-
-        filepath = join(abspath(path), self.filename)
+        filepath = os.path.join(os.path.abspath(path), self.filename)
 
         LockManager._touch(filepath)
 
@@ -91,7 +84,7 @@ class LockManager(object):
             OSError: File operation error. Error type raised may be
                 a subclass of OSError.
         """
-        fullpath: str = abspath(filepath)
+        fullpath: str = os.path.abspath(filepath)
 
         if fullpath in self._locks:
             self._locks.remove(fullpath)

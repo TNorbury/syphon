@@ -1,4 +1,4 @@
-"""syphon.init.py
+"""syphon.core.init.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
@@ -25,7 +25,7 @@ def init(
         OSError: File operation error. Error type raised may be
             a subclass of OSError.
     """
-    from . import schema
+    from syphon import schema
 
     schema.save(new_schema, schema_filepath, overwrite)
 

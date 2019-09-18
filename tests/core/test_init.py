@@ -16,7 +16,7 @@ from sortedcontainers import SortedDict
 import syphon
 import syphon.schema
 
-from .assert_utils import assert_captured_outerr
+from ..assert_utils import assert_captured_outerr
 
 
 @pytest.fixture(

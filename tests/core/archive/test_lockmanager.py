@@ -1,4 +1,4 @@
-"""tests.archive.test_lockmanager.py
+"""tests.core.archive.test_lockmanager.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
@@ -12,7 +12,7 @@ import pytest
 from py._path.local import LocalPath
 from sortedcontainers import SortedList
 
-from syphon.archive._lockmanager import LockManager
+from syphon.core.archive.lockmanager import LockManager
 
 MAX_UNIQUE_LOCKS = 5
 

@@ -1,25 +1,23 @@
-"""syphon.archive.archive.py
+"""syphon.core.archive.archive.py
 
    Copyright Keithley Instruments, LLC.
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
 
 """
-from os.path import basename, dirname
+import os
 from typing import List, Optional
 
 from pandas import DataFrame, Series, concat, read_csv
 from sortedcontainers import SortedDict, SortedList
 
-from ._lockmanager import LockManager
+from ... import schema as schema_help
+from ...errors import InconsistentMetadataError
+from .datafilter import datafilter
+from .filemap import filemap
+from .lockmanager import LockManager
 
 
-class InconsistentMetadataError(BaseException):
-    def __init__(self, column: str):
-        super().__init__()
-        self.column = column
-
-
-def _merge_metafiles(
+def merge_metafiles(
     filemap: SortedDict, datafile: str, data_rows: int
 ) -> Optional[DataFrame]:
     # merge all metadata files into a single DataFrame
@@ -43,7 +41,7 @@ def _merge_metafiles(
     return None if meta_frame.empty else meta_frame
 
 
-def _write_filtered_data(
+def write_filtered_data(
     archive: str,
     schema: SortedDict,
     filtered_data: List[DataFrame],
@@ -51,34 +49,29 @@ def _write_filtered_data(
     overwrite: bool,
     verbose: bool,
 ):
-    from os import makedirs
-    from os.path import exists, join
-
-    from ..schema import resolve_path
-
-    datafilename = basename(datafile)
+    datafilename = os.path.basename(datafile)
 
     for data in filtered_data:
         path: Optional[str] = None
-        path = resolve_path(archive, schema, data)
+        path = schema_help.resolve_path(archive, schema, data)
 
-        target_filename: str = join(
+        target_filename: str = os.path.join(
             path, datafilename
         ) if path is not None else datafilename
 
-        if exists(target_filename) and not overwrite:
+        if os.path.exists(target_filename) and not overwrite:
             raise FileExistsError(
                 "Archive error: file already exists @ {}".format(target_filename)
             )
 
-        makedirs(path, exist_ok=True)
+        os.makedirs(path, exist_ok=True)
         data.to_csv(target_filename, index=False)
 
         if verbose:
             print("Archive: wrote {0}".format(target_filename))
 
 
-def _archive(
+def collate_data(
     archive_dir: str,
     schema: SortedDict,
     data_list: SortedList,
@@ -88,12 +81,7 @@ def _archive(
 ):
     from pandas.errors import EmptyDataError
 
-    from ..schema import check_columns
-
-    from . import datafilter
-    from . import file_map
-
-    fmap: SortedDict = file_map(data_list, meta_list)
+    fmap: SortedDict = filemap(data_list, meta_list)
 
     for datafile in fmap:
         try:
@@ -111,7 +99,7 @@ def _archive(
         data_frame.dropna(axis=1, how="all", inplace=True)
 
         try:
-            meta_frame: Optional[DataFrame] = _merge_metafiles(
+            meta_frame: Optional[DataFrame] = merge_metafiles(
                 fmap, datafile, data_frame.shape[0]
             )
         except InconsistentMetadataError as err:
@@ -122,11 +110,11 @@ def _archive(
         if meta_frame is not None:
             data_frame = concat([data_frame, meta_frame], axis=1)
 
-        check_columns(schema, data_frame)
+        schema_help.check_columns(schema, data_frame)
 
         filtered_data: List[DataFrame] = datafilter(schema, data_frame)
 
-        _write_filtered_data(
+        write_filtered_data(
             archive_dir, schema, filtered_data, datafile, overwrite, verbose
         )
 
@@ -159,12 +147,10 @@ def archive(
     """
     from glob import glob
 
-    from ..schema import load
-
     lock_manager = LockManager()
     lock_list: List[str] = list()
 
-    schema: SortedDict = SortedDict() if schema_filepath is None else load(
+    schema: SortedDict = SortedDict() if schema_filepath is None else schema_help.load(
         schema_filepath
     )
 
@@ -173,7 +159,7 @@ def archive(
     if len(data_list) == 0:
         lock_manager.release_all()
         raise FileNotFoundError('No data files matching "{}"'.format(data_glob))
-    lock_list.append(lock_manager.lock(dirname(data_list[0])))
+    lock_list.append(lock_manager.lock(os.path.dirname(data_list[0])))
 
     # add '#lock' file to all metadata directories
     meta_list: SortedList = SortedList()
@@ -182,9 +168,9 @@ def archive(
         if len(meta_list) == 0:
             lock_manager.release_all()
             raise FileNotFoundError('No metadata files matching "{}"'.format(data_glob))
-        lock_list.append(lock_manager.lock(dirname(meta_list[0])))
+        lock_list.append(lock_manager.lock(os.path.dirname(meta_list[0])))
 
     try:
-        _archive(archive_dir, schema, data_list, meta_list, overwrite, verbose)
+        collate_data(archive_dir, schema, data_list, meta_list, overwrite, verbose)
     finally:
         lock_manager.release_all()
