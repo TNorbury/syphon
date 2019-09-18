@@ -29,10 +29,10 @@ def test_hashfile_init_raises_valueerror():
         syphon.util.HashFile("data file", hash_type=rand_string())
 
 
-def test_hashfile_is_a_context_manager(cache_file: LocalPath):
-    cache_file.write(rand_string())
+def test_hashfile_is_a_context_manager(hash_file: LocalPath):
+    hash_file.write(rand_string())
 
-    hashfile = syphon.util.HashFile(cache_file)
+    hashfile = syphon.util.HashFile(hash_file)
     assert hashfile._count == 0
     assert hashfile._file is None
 
@@ -46,10 +46,10 @@ def test_hashfile_is_a_context_manager(cache_file: LocalPath):
     assert hashfile._file is None
 
 
-def test_hashfile_context_reuses_opened_file(cache_file: LocalPath):
-    cache_file.write(rand_string())
+def test_hashfile_context_reuses_opened_file(hash_file: LocalPath):
+    hash_file.write(rand_string())
 
-    hashfile = syphon.util.HashFile(cache_file)
+    hashfile = syphon.util.HashFile(hash_file)
     assert hashfile._count == 0
     assert hashfile._file is None
 

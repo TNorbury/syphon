@@ -61,6 +61,11 @@ def cache_file(tmpdir: LocalPath) -> LocalPath:
 
 
 @pytest.fixture
+def hash_file(tmpdir: LocalPath) -> LocalPath:
+    return tmpdir.join("hash.sums")
+
+
+@pytest.fixture
 def import_dir(tmpdir: LocalPath) -> LocalPath:
     return tmpdir.mkdir("import")
 
