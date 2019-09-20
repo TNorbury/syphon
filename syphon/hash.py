@@ -178,29 +178,18 @@ class _OpenHashFile(object):
         self.line_split: Optional[Callable[[str], Optional[SplitResult]]] = None
 
     def __iter__(self) -> Iterator[HashEntry]:
-        return self.entries(self.line_split)
+        return self.entries()
 
     def close(self) -> None:
         self._file_obj.close()
 
-    def entries(
-        self, line_split: Optional[Callable[[str], Optional[SplitResult]]] = None
-    ) -> Iterator[HashEntry]:
-        """Iterate through all file entries.
-
-        Args:
-            line_split: A callable object that returns a SplitResult from a given line
-                or None if the line is in an unexpected format. Returning None raises
-                a MalformedLineError.
-
-        Returns:
-            Iterator[HashEntry]: An iterator over all file HashEntries.
-        """
+    def entries(self) -> Iterator[HashEntry]:
+        """Iterate through all file entries."""
         while True:
             line = self._file_obj.readline()
             if len(line) == 0:
                 break
-            yield HashEntry.from_str(line, line_split, self.hash_type)
+            yield HashEntry.from_str(line, self.line_split, self.hash_type)
 
     def tell(self) -> int:
         """Return the current stream position."""
