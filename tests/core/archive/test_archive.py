@@ -155,7 +155,7 @@ def test_archive(
 
     assert expected_paths == actual_paths
     assert_frame_equal(expected_df, actual_frame)
-    assert_captured_outerr(capsys, verbose, False)
+    assert_captured_outerr(capsys.readouterr(), verbose, False)
 
 
 def test_archive_emptydata(
@@ -165,7 +165,7 @@ def test_archive_emptydata(
 
     syphon.archive(datafile, archive_dir, verbose=verbose)
 
-    assert_captured_outerr(capsys, verbose, False)
+    assert_captured_outerr(capsys.readouterr(), verbose, False)
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
 
@@ -223,7 +223,7 @@ def test_archive_metadata(
 
     assert expected_paths == actual_paths
     assert_frame_equal(expected_df, actual_df)
-    assert_captured_outerr(capsys, verbose, False)
+    assert_captured_outerr(capsys.readouterr(), verbose, False)
 
 
 def test_archive_no_schema(
@@ -270,7 +270,7 @@ def test_archive_no_schema(
 
     assert expected_paths == actual_paths
     assert_frame_equal(expected_df, actual_frame)
-    assert_captured_outerr(capsys, verbose, False)
+    assert_captured_outerr(capsys.readouterr(), verbose, False)
 
 
 def test_archive_fileexistserror(

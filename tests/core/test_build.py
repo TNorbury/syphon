@@ -117,7 +117,7 @@ class TestBuild(object):
                             )
 
         assert_frame_equal(expected_frame, actual_frame, check_exact=True)
-        assert_captured_outerr(capsys, verbose, False)
+        assert_captured_outerr(capsys.readouterr(), verbose, False)
 
     def test_build_iris_no_schema(
         self,
@@ -150,7 +150,7 @@ class TestBuild(object):
         actual_frame = DataFrame(read_csv(cache_file, dtype=str))
 
         assert_frame_equal(expected_frame, actual_frame, check_like=True)
-        assert_captured_outerr(capsys, verbose, False)
+        assert_captured_outerr(capsys.readouterr(), verbose, False)
 
     def test_build_fileexistserror(self, archive_dir: LocalPath, cache_file: LocalPath):
         try:

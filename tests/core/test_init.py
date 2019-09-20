@@ -46,7 +46,7 @@ def test_init(
 
     assert actual == init_schema_fixture
 
-    assert_captured_outerr(capsys, verbose, False)
+    assert_captured_outerr(capsys.readouterr(), verbose, False)
 
 
 def test_init_fileexistserror(archive_dir: LocalPath, init_schema_fixture: SortedDict):
