@@ -6,7 +6,7 @@
 """
 from typing import Callable, Optional
 
-from ..hash import SplitResult
+from ..hash import HashFile, SplitResult
 
 DEFAULT_FILE = ".sha256sums"
 
@@ -34,8 +34,8 @@ def check(
     """
     import os
 
-    from syphon.errors import MalformedLineError
-    from syphon.hash import HashEntry, HashFile
+    from ..errors import MalformedLineError
+    from ..hash import HashEntry
 
     if hash_filepath is None:
         cachepath, cachefile = os.path.split(cache_filepath)
@@ -65,8 +65,6 @@ def check(
         if verbose:
             print('Error parsing hash entry "{}"'.format(err.line))
         return False
-    finally:
-        del hashfile
 
     if expected_entry is None:
         if verbose:
@@ -78,7 +76,10 @@ def check(
         return False
 
     try:
-        return expected_entry.hash == actual_entry.hash
+        result: bool = expected_entry.hash == actual_entry.hash
+        if verbose:
+            print("{0}: {1}".format(cache_filepath, "OK" if result else "FAILED"))
+        return result
     except OSError:
         if verbose:
             print("Error reading cache file @ {}".format(cache_filepath))
