@@ -54,24 +54,25 @@ def main(args: Optional[List[str]] = None) -> int:
             archive_dirpath,
             schema_filepath if os.path.exists(schema_filepath) else None,
             parsed_args.metadata,
-            parsed_args.force,
-            parsed_args.verbose,
+            overwrite=parsed_args.force,
+            verbose=parsed_args.verbose,
         )
     elif getattr(parsed_args, "build", False):
         build(
             os.path.abspath(parsed_args.build_source),
             os.path.abspath(parsed_args.build_destination),
-            parsed_args.force,
-            parsed_args.verbose,
+            overwrite=parsed_args.force,
+            verbose=parsed_args.verbose,
         )
     elif getattr(parsed_args, "check", False):
-        checksum_file: Optional[str] = parsed_args.check_source
         return int(
             not check(
                 os.path.abspath(parsed_args.check_target),
-                checksum_file
-                if checksum_file is None
-                else os.path.abspath(checksum_file),
+                hash_filepath=(
+                    None
+                    if parsed_args.hashfile is None
+                    else os.path.abspath(parsed_args.hashfile)
+                ),
                 verbose=parsed_args.verbose,
             )
         )
@@ -85,8 +86,8 @@ def main(args: Optional[List[str]] = None) -> int:
             os.path.join(
                 os.path.abspath(parsed_args.init_destination), schema.DEFAULT_FILE
             ),
-            parsed_args.force,
-            parsed_args.verbose,
+            overwrite=parsed_args.force,
+            verbose=parsed_args.verbose,
         )
 
     return 0

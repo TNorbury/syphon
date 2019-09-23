@@ -11,6 +11,9 @@ def get_parser() -> argparse.ArgumentParser:
     """Return `ArgumentParser` used to parse `syphon` arguments."""
     from . import __url__
 
+    hashfile_help = (
+        "an optional file whose lines are whitespace-delimited, checksum-file pairs"
+    )
     epilog_last_line = "Syphon home page: <{}>".format(__url__)
 
     # create parser with the given arguments
@@ -125,6 +128,9 @@ def get_parser() -> argparse.ArgumentParser:
     build_parser.add_argument(
         "build_destination", help="filename of the output file", metavar="destination"
     )
+    build_parser.add_argument(
+        "hashfile", default=None, help=hashfile_help, nargs="?"
+    )
 
     # check command
     # create check subcommand parser
@@ -141,13 +147,11 @@ def get_parser() -> argparse.ArgumentParser:
         required=False,
     )
     check_parser.add_argument(
-        "check_target", help="file output by the build command", metavar="target"
+        "check_source", help="file output by the build command", metavar="source"
     )
-    help = "an optional file whose lines are whitespace-delimited, checksum-file pairs"
     check_parser.add_argument(
-        "check_source", default=None, help=help, metavar="source", nargs="?"
+        "hashfile", default=None, help=hashfile_help, nargs="?"
     )
-    del help
 
     # init command
     # create init subcommand parser
