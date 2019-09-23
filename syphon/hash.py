@@ -180,6 +180,40 @@ class _OpenHashFile(object):
     def __iter__(self) -> Iterator[HashEntry]:
         return self.entries()
 
+    def append(self, entry: HashEntry):
+        """Update the given hash.
+
+        Returns the stream to its position before this method was called.
+
+        Args:
+            entry: A new entry.
+
+        Raises:
+            ValueError: If the given entry's hash type does not match this object's
+                hash type.
+        """
+        if entry.hash_type != self.hash_type:
+            raise ValueError(
+                "Expected hash type {0}, but received {1}".format(
+                    self.hash_type, entry.hash_type
+                )
+            )
+
+        initial_position = self.tell()
+
+        # You could compress the next 2 commands into `...seek(-1, 2)` but
+        # Windows doesn't support "nonzero end-relative seeks".
+        self._file_obj.seek(0, 2)
+        add_newline = False
+        here = self.tell()
+        # Don't want to seek before position 0 nor start the file with a blank line.
+        if here != 0:
+            self._file_obj.seek(here - 1)
+            add_newline = self._file_obj.read() != "\n"
+        self._file_obj.write("{0}{1}\n".format("\n" if add_newline else "", str(entry)))
+
+        self._file_obj.seek(initial_position)
+
     def close(self) -> None:
         self._file_obj.close()
 
@@ -194,6 +228,39 @@ class _OpenHashFile(object):
     def tell(self) -> int:
         """Return the current stream position."""
         return self._file_obj.tell()
+
+    def update(self, entry: HashEntry):
+        """Update the given hash or append it if an existing entry is not found.
+
+        Returns the stream to its position before this method was called.
+
+        Args:
+            entry: An existing entry with a new hash value.
+
+        Raises:
+            ValueError: If the given entry's hash type does not match this object's
+                hash type.
+        """
+        if entry.hash_type != self.hash_type:
+            raise ValueError(
+                "Expected hash type {0}, but received {1}".format(
+                    self.hash_type, entry.hash_type
+                )
+            )
+
+        initial_position = self.tell()
+
+        previous_position = initial_position
+        for found in self.entries():
+            if entry.filepath == found.filepath:
+                self._file_obj.seek(previous_position)
+                self._file_obj.write(entry.hash)
+                break
+            previous_position = self.tell()
+        else:
+            self.append(entry)
+
+        self._file_obj.seek(initial_position)
 
 
 class HashFile(object):
