@@ -17,14 +17,15 @@ def check(
     hash_line_split: Optional[Callable[[str], Optional[SplitResult]]] = None,
     verbose: bool = False,
 ) -> bool:
+    # NOTE: the build function uses the exact same wording for "hash_filepath".
     """Verify the integrity of the built cache file.
 
     Args:
         cache_filepath: Absolute path to the target output file.
         hash_filepath: Absolute path to a file containing a SHA256 sum of the
             cache. If not given, then the default is calculated by joining the cache
-            directory with `syphon.check.DEFAULT_FILE`.
-        hash_line_split: A callable object that returns a `syphon.util.SplitResult`
+            directory with `syphon.core.check.DEFAULT_FILE`.
+        hash_line_split: A callable object that returns a `syphon.hash.SplitResult`
             from a given line or None if the line is in an unexpected format. Returning
             None raises a MalformedLineError.
         verbose: Whether to print what is being done to the standard output.
