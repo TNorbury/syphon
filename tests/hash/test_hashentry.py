@@ -92,59 +92,59 @@ def test_hashentry_hash_uses_cache():
     assert expected_hash == entry.hash
 
 
-def test_hashentry_hashtype_getter(hash_type: Optional[str]):
+def test_hashentry_hash_type_getter(hash_type: Optional[str]):
     entry = HashEntry("datafile", hash_type=hash_type)
-    assert entry.hashtype == DEFAULT_HASH_TYPE if hash_type is None else hash_type
+    assert entry.hash_type == DEFAULT_HASH_TYPE if hash_type is None else hash_type
 
-    assert entry.hashtype == entry.hashtype
+    assert entry.hash_type == entry._hash_obj.name
 
 
-def test_hashentry_hashtype_setter(hash_type: Optional[str]):
+def test_hashentry_hash_type_setter(hash_type: Optional[str]):
     if hash_type is None:
         hash_type = DEFAULT_HASH_TYPE
 
     entry = HashEntry("datafile")
-    assert entry.hashtype == DEFAULT_HASH_TYPE
+    assert entry.hash_type == DEFAULT_HASH_TYPE
 
     entry._hash_obj.update(bytes(rand_string(), "utf-8"))
     pre_hash = entry._hash_obj.digest()
 
     # Assert that the hash object is reinstantiated if the hash type changes.
-    entry.hashtype = hash_type
+    entry.hash_type = hash_type
     if hash_type == DEFAULT_HASH_TYPE:
         assert entry._hash_obj.digest() == pre_hash
     else:
         assert entry._hash_obj.digest() != pre_hash
 
 
-def test_hashentry_hashtype_setter_raises_typeerror():
+def test_hashentry_hash_type_setter_raises_typeerror():
     entry = HashEntry("datafile")
 
     entry._hash_obj.update(bytes(rand_string(), "utf-8"))
     pre_hash = entry._hash_obj.digest()
-    pre_hash_name = entry.hashtype
+    pre_hash_name = entry.hash_type
 
     with pytest.raises(TypeError):
-        entry.hashtype = 0
+        entry.hash_type = 0
 
     # Assert that the original hash state is retained.
     assert pre_hash == entry._hash_obj.digest()
-    assert pre_hash_name == entry.hashtype
+    assert pre_hash_name == entry.hash_type
 
 
-def test_hashentry_hashtype_setter_raises_valueerror():
+def test_hashentry_hash_type_setter_raises_valueerror():
     entry = HashEntry("datafile")
 
     entry._hash_obj.update(bytes(rand_string(), "utf-8"))
     pre_hash = entry._hash_obj.digest()
-    pre_hash_name = entry.hashtype
+    pre_hash_name = entry.hash_type
 
     with pytest.raises(ValueError):
-        entry.hashtype = rand_string()
+        entry.hash_type = rand_string()
 
     # Assert that the original hash state is retained.
     assert pre_hash == entry._hash_obj.digest()
-    assert pre_hash_name == entry.hashtype
+    assert pre_hash_name == entry.hash_type
 
 
 def test_hashentry_from_str(

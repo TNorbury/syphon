@@ -81,7 +81,7 @@ class HashEntry(object):
         return new_hash
 
     @property
-    def hashtype(self) -> str:
+    def hash_type(self) -> str:
         """The hash type used to calculate the hash.
 
         Type must be supported by hashlib.
@@ -92,8 +92,8 @@ class HashEntry(object):
         """
         return self._hash_obj.name
 
-    @hashtype.setter
-    def hashtype(self, value: str):
+    @hash_type.setter
+    def hash_type(self, value: str):
         if not isinstance(value, str):
             raise TypeError("Expected {0}, received {1}".format(str, type(value)))
 
