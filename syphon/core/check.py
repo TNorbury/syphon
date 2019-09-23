@@ -39,8 +39,7 @@ def check(
     from ..hash import HashEntry
 
     if hash_filepath is None:
-        cachepath, cachefile = os.path.split(cache_filepath)
-        hash_filepath = os.path.join(cachepath, DEFAULT_FILE)
+        hash_filepath = os.path.join(os.path.dirname(cache_filepath), DEFAULT_FILE)
 
     if not os.path.exists(hash_filepath):
         if verbose:
