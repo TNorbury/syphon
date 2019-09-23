@@ -22,7 +22,7 @@ def main(args: Optional[List[str]] = None) -> int:
     from . import __version__, schema
     from ._cmdparser import get_parser
     from .core.archive.archive import archive
-    from .core.build import build
+    from .core.build import build, LINUX_HIDDEN_CHAR
     from .core.check import check
     from .core.init import init
 
@@ -58,9 +58,20 @@ def main(args: Optional[List[str]] = None) -> int:
             verbose=parsed_args.verbose,
         )
     elif getattr(parsed_args, "build", False):
+        file_list: List[str] = list()
+        for root, _, files in os.walk(os.path.abspath(parsed_args.build_source)):
+            for file in files:
+                # skip linux-style hidden files
+                if not file.startswith(LINUX_HIDDEN_CHAR):
+                    file_list.append(os.path.join(root, file))
         build(
-            os.path.abspath(parsed_args.build_source),
             os.path.abspath(parsed_args.build_destination),
+            *file_list,
+            hash_filepath=(
+                None
+                if parsed_args.hashfile is None
+                else os.path.abspath(parsed_args.hashfile)
+            ),
             overwrite=parsed_args.force,
             verbose=parsed_args.verbose,
         )

@@ -5,6 +5,7 @@
 
 """
 import os
+from typing import List
 
 import pytest
 from _pytest.capture import CaptureFixture
@@ -14,6 +15,7 @@ from py._path.local import LocalPath
 from sortedcontainers import SortedDict
 
 import syphon
+import syphon.core.build
 import syphon.schema
 
 from .. import get_data_path
@@ -58,7 +60,13 @@ class TestBuild(object):
             with open(cache_file, mode="w") as f:
                 f.write("content")
 
-        syphon.build(archive_dir, cache_file, overwrite, verbose)
+        file_list: List[str] = list()
+        for root, _, files in os.walk(str(archive_dir)):
+            for file in files:
+                # skip linux-style hidden files
+                if not file.startswith(syphon.core.build.LINUX_HIDDEN_CHAR):
+                    file_list.append(os.path.join(root, file))
+        syphon.build(cache_file, *file_list, overwrite=overwrite, verbose=verbose)
 
         actual_frame = DataFrame(read_csv(cache_file, index_col="Index"))
         actual_frame.sort_index(inplace=True)
@@ -145,7 +153,13 @@ class TestBuild(object):
             with open(cache_file, mode="w") as f:
                 f.write("content")
 
-        syphon.build(archive_dir, cache_file, overwrite, verbose)
+        file_list: List[str] = list()
+        for root, _, files in os.walk(str(archive_dir)):
+            for file in files:
+                # skip linux-style hidden files
+                if not file.startswith(syphon.core.build.LINUX_HIDDEN_CHAR):
+                    file_list.append(os.path.join(root, file))
+        syphon.build(cache_file, *file_list, overwrite=overwrite, verbose=verbose)
 
         actual_frame = DataFrame(read_csv(cache_file, dtype=str))
 
@@ -168,5 +182,12 @@ class TestBuild(object):
         with open(cache_file, mode="w") as f:
             f.write("content")
 
+        file_list: List[str] = list()
+        for root, _, files in os.walk(str(archive_dir)):
+            for file in files:
+                # skip linux-style hidden files
+                if not file.startswith(syphon.core.build.LINUX_HIDDEN_CHAR):
+                    file_list.append(os.path.join(root, file))
+
         with pytest.raises(FileExistsError):
-            syphon.build(archive_dir, cache_file, overwrite=False)
+            syphon.build(cache_file, *file_list, overwrite=False)
