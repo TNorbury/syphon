@@ -135,7 +135,17 @@ def random_metadata(request: FixtureRequest, import_dir: LocalPath) -> List[str]
 
 
 @pytest.fixture(params=[True, False])
+def incremental(request: FixtureRequest) -> bool:
+    return request.param
+
+
+@pytest.fixture(params=[True, False])
 def overwrite(request: FixtureRequest) -> bool:
+    return request.param
+
+
+@pytest.fixture(params=[True, False])
+def post_hash(request: FixtureRequest) -> bool:
     return request.param
 
 

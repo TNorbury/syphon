@@ -18,7 +18,7 @@ def build(
     overwrite: bool = False,
     post_hash: bool = True,
     verbose: bool = False,
-):
+) -> bool:
     # NOTE: the check function uses the exact same wording for "hash_filepath".
     """Combine all archived data files into a single file.
 
@@ -47,12 +47,12 @@ def build(
             False.
     """
     import os
+    from pathlib import Path
     from typing import Tuple
 
     from pandas import DataFrame, read_csv
 
     from ..hash import HashEntry, HashFile
-    from .archive.lockmanager import LockManager
     from .check import check
     from .check import DEFAULT_FILE as DEFAULT_HASH_FILE
 
@@ -64,9 +64,6 @@ def build(
     if hash_filepath is None:
         cachepath, _ = os.path.split(cache_filepath)
         hash_filepath = os.path.join(cachepath, DEFAULT_HASH_FILE)
-
-    if not os.path.exists(hash_filepath) and (incremental or post_hash):
-        LockManager._touch(hash_filepath)
 
     if os.path.exists(cache_filepath):
         if not overwrite:
@@ -111,6 +108,8 @@ def build(
     cache.to_csv(cache_filepath, index=False)
 
     if post_hash:
+        if not os.path.exists(hash_filepath):
+            Path(hash_filepath).touch()
         new_entry = HashEntry(cache_filepath)
 
         with HashFile(hash_filepath) as hashfile:

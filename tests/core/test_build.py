@@ -5,9 +5,11 @@
 
 """
 import os
-from typing import List
+import pathlib
+from typing import List, Optional
 
 import pytest
+from _pytest.fixtures import FixtureRequest
 from _pytest.capture import CaptureFixture
 from pandas import DataFrame, read_csv
 from pandas.testing import assert_frame_equal
@@ -16,178 +18,444 @@ from sortedcontainers import SortedDict
 
 import syphon
 import syphon.core.build
+import syphon.core.check
+import syphon.hash
 import syphon.schema
 
-from .. import get_data_path
-from ..assert_utils import assert_captured_outerr
+from .. import get_data_path, rand_string
+from ..assert_utils import assert_captured_outerr, assert_post_hash
+
+
+@pytest.fixture(params=[True, False])
+def hash_file(request: FixtureRequest, hash_file: LocalPath) -> Optional[LocalPath]:
+    """Return None if request.param == True else return the hash_file.
+
+    syphon.check should resolve the hash file to its default value if sent None.
+    """
+    return None if request.param else hash_file
+
+
+def get_data_files(archive_dir: LocalPath) -> List[str]:
+    file_list: List[str] = list()
+    for root, _, files in os.walk(str(archive_dir)):
+        for file in files:
+            # skip linux-style hidden files
+            if not file.startswith(syphon.core.build.LINUX_HIDDEN_CHAR):
+                file_list.append(os.path.join(root, file))
+    return file_list
 
 
 class TestBuild(object):
     @staticmethod
-    def _delete_cache(file: str):
-        try:
-            os.remove(file)
-        except OSError:
-            raise
+    def test_does_nothing_when_given_zero_files(
+        capsys: CaptureFixture,
+        cache_file: LocalPath,
+        hash_file: Optional[LocalPath],
+        incremental: bool,
+        overwrite: bool,
+        post_hash: bool,
+        verbose: bool,
+    ):
+        cache_file.write(rand_string())
+        expected_cache_hash: str = syphon.hash.HashEntry(cache_file).hash
 
-    def test_build_iris(
-        self,
+        assert not syphon.build(
+            cache_file,
+            *[],
+            hash_filepath=hash_file,
+            incremental=incremental,
+            overwrite=overwrite,
+            post_hash=post_hash,
+            verbose=verbose,
+        )
+        assert_post_hash(False, cache_file, hash_filepath=hash_file)
+        assert_captured_outerr(capsys.readouterr(), verbose, False)
+
+        actual_cache_hash: str = syphon.hash.HashEntry(cache_file).hash
+        assert expected_cache_hash == actual_cache_hash
+
+    @staticmethod
+    def test_full_build_with_schema_maintains_data_fidelity(
         capsys: CaptureFixture,
         archive_dir: LocalPath,
         cache_file: LocalPath,
+        hash_file: Optional[LocalPath],
         overwrite: bool,
+        post_hash: bool,
         verbose: bool,
     ):
-        try:
-            TestBuild._delete_cache(str(cache_file))
-        except FileNotFoundError:
-            pass
-        except OSError:
-            raise
-
         datafile: str = os.path.join(get_data_path(), "iris.csv")
         schema = SortedDict({"0": "Name"})
         schemafile = os.path.join(archive_dir, syphon.schema.DEFAULT_FILE)
 
-        syphon.init(schema, schemafile, overwrite)
-        syphon.archive(datafile, archive_dir, schemafile, overwrite=overwrite)
+        syphon.init(schema, schemafile, overwrite=overwrite)
+        syphon.archive(
+            datafile, archive_dir, schema_filepath=schemafile, overwrite=overwrite
+        )
         assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
-        expected_frame = DataFrame(read_csv(datafile, index_col="Index"))
+        expected_frame = DataFrame(read_csv(datafile, dtype=str, index_col="Index"))
         expected_frame.sort_index(inplace=True)
 
         if overwrite:
-            with open(cache_file, mode="w") as f:
-                f.write("content")
+            cache_file.write(rand_string())
 
-        file_list: List[str] = list()
-        for root, _, files in os.walk(str(archive_dir)):
-            for file in files:
-                # skip linux-style hidden files
-                if not file.startswith(syphon.core.build.LINUX_HIDDEN_CHAR):
-                    file_list.append(os.path.join(root, file))
-        syphon.build(cache_file, *file_list, overwrite=overwrite, verbose=verbose)
+        assert syphon.build(
+            cache_file,
+            *get_data_files(archive_dir),
+            hash_filepath=hash_file,
+            incremental=False,
+            overwrite=overwrite,
+            post_hash=post_hash,
+            verbose=verbose,
+        )
+        assert_post_hash(post_hash, cache_file, hash_filepath=hash_file)
 
-        actual_frame = DataFrame(read_csv(cache_file, index_col="Index"))
+        actual_frame = DataFrame(read_csv(cache_file, dtype=str, index_col="Index"))
         actual_frame.sort_index(inplace=True)
-
-        assert (
-            expected_frame.shape == actual_frame.shape
-        ), "unequal shapes: expected {0} found {1}".format(
-            expected_frame.shape, actual_frame.shape
-        )
-        assert (expected_frame.index).equals(
-            actual_frame.index
-        ), "unequal indices: expected {0} found {1}".format(
-            expected_frame.index, actual_frame.index
-        )
-        assert (expected_frame.columns).equals(
-            actual_frame.columns
-        ), "unequal columns: expected {0} found {1}".format(
-            expected_frame.columns, actual_frame.columns
-        )
-
-        for i, col in enumerate(expected_frame.columns):
-            if col in actual_frame:
-                expected_col = expected_frame.iloc[:, i]
-                actual_col = actual_frame.iloc[:, i]
-
-                lengths_equal: bool = len(expected_col) == len(actual_col)
-
-                assert (
-                    expected_col.name == actual_col.name
-                ), "  col {0}: unequal names: expected {1} found {2}".format(
-                    i, expected_col.name, actual_col.name
-                )
-                assert (
-                    lengths_equal
-                ), "  col {0}: unequal lengths: expected {1} found {2}".format(
-                    i, len(expected_col), len(actual_col)
-                )
-                assert (expected_col.index).equals(
-                    actual_col.index
-                ), "  col {0}: unequal indices: expected {1} found {3}".format(
-                    i, expected_col.index, actual_col.index
-                )
-
-                if lengths_equal:
-                    for j in range(expected_col.size):
-                        if expected_col[j] != actual_col[j]:
-                            print(
-                                " ".join(
-                                    [
-                                        "  col {0}: unequal @ row {1}:".format(i, j),
-                                        "expected {2} found {3}".format(
-                                            expected_col[j], actual_col[j]
-                                        ),
-                                    ]
-                                )
-                            )
 
         assert_frame_equal(expected_frame, actual_frame, check_exact=True)
         assert_captured_outerr(capsys.readouterr(), verbose, False)
 
-    def test_build_iris_no_schema(
-        self,
+    @staticmethod
+    def test_full_build_without_schema_maintains_data_fidelity(
         capsys: CaptureFixture,
         archive_dir: LocalPath,
         cache_file: LocalPath,
+        hash_file: Optional[LocalPath],
         overwrite: bool,
+        post_hash: bool,
         verbose: bool,
     ):
-        try:
-            TestBuild._delete_cache(str(cache_file))
-        except FileNotFoundError:
-            pass
-        except OSError:
-            raise
-
         datafile: str = os.path.join(get_data_path(), "iris.csv")
 
         syphon.archive(datafile, archive_dir, overwrite=overwrite)
         assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
-        expected_frame = DataFrame(read_csv(datafile, dtype=str))
+        expected_frame = DataFrame(read_csv(datafile, dtype=str, index_col="Index"))
+        expected_frame.sort_index(inplace=True)
 
         if overwrite:
-            with open(cache_file, mode="w") as f:
-                f.write("content")
+            cache_file.write(rand_string())
 
-        file_list: List[str] = list()
-        for root, _, files in os.walk(str(archive_dir)):
-            for file in files:
-                # skip linux-style hidden files
-                if not file.startswith(syphon.core.build.LINUX_HIDDEN_CHAR):
-                    file_list.append(os.path.join(root, file))
-        syphon.build(cache_file, *file_list, overwrite=overwrite, verbose=verbose)
+        assert syphon.build(
+            cache_file,
+            *get_data_files(archive_dir),
+            hash_filepath=hash_file,
+            incremental=False,
+            overwrite=overwrite,
+            post_hash=post_hash,
+            verbose=verbose,
+        )
+        assert_post_hash(post_hash, cache_file, hash_filepath=hash_file)
 
-        actual_frame = DataFrame(read_csv(cache_file, dtype=str))
+        actual_frame = DataFrame(read_csv(cache_file, dtype=str, index_col="Index"))
+        actual_frame.sort_index(inplace=True)
 
-        assert_frame_equal(expected_frame, actual_frame, check_like=True)
+        assert_frame_equal(expected_frame, actual_frame, check_exact=True)
         assert_captured_outerr(capsys.readouterr(), verbose, False)
 
-    def test_build_fileexistserror(self, archive_dir: LocalPath, cache_file: LocalPath):
-        try:
-            TestBuild._delete_cache(str(cache_file))
-        except FileNotFoundError:
-            pass
-        except OSError:
-            raise
+    @staticmethod
+    @pytest.mark.parametrize("schema", [True, False])
+    def test_incremental_becomes_full_build_when_cache_does_not_exist(
+        capsys: CaptureFixture,
+        schema: bool,
+        archive_dir: LocalPath,
+        cache_file: LocalPath,
+        hash_file: Optional[LocalPath],
+        post_hash: bool,
+        verbose: bool,
+    ):
+        datafile: str = os.path.join(get_data_path(), "iris.csv")
+        schema = SortedDict({"0": "Name"})
+        schemafile = os.path.join(archive_dir, syphon.schema.DEFAULT_FILE)
 
+        if schema:
+            syphon.init(schema, schemafile)
+        syphon.archive(
+            datafile, archive_dir, schema_filepath=schemafile if schema else None
+        )
+        assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
+
+        expected_frame = DataFrame(read_csv(datafile, dtype=str, index_col="Index"))
+        expected_frame.sort_index(inplace=True)
+
+        # Raises a FileExistsError unless a full build is performed.
+        assert syphon.build(
+            cache_file,
+            *get_data_files(archive_dir),
+            hash_filepath=hash_file,
+            incremental=True,
+            post_hash=post_hash,
+            verbose=verbose,
+        )
+        assert_post_hash(post_hash, cache_file, hash_filepath=hash_file)
+
+        actual_frame = DataFrame(read_csv(cache_file, dtype=str, index_col="Index"))
+        actual_frame.sort_index(inplace=True)
+
+        assert_frame_equal(expected_frame, actual_frame, check_exact=True)
+        assert_captured_outerr(capsys.readouterr(), verbose, False)
+
+    @staticmethod
+    @pytest.mark.parametrize("schema", [True, False])
+    def test_incremental_becomes_full_build_when_check_fails(
+        capsys: CaptureFixture,
+        schema: bool,
+        archive_dir: LocalPath,
+        cache_file: LocalPath,
+        hash_file: Optional[LocalPath],
+        post_hash: bool,
+        verbose: bool,
+    ):
+        datafile: str = os.path.join(get_data_path(), "iris.csv")
+        schema = SortedDict({"0": "Name"})
+        schemafile = os.path.join(archive_dir, syphon.schema.DEFAULT_FILE)
+
+        if schema:
+            syphon.init(schema, schemafile)
+        syphon.archive(
+            datafile, archive_dir, schema_filepath=schemafile if schema else None
+        )
+        assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
+
+        expected_frame = DataFrame(read_csv(datafile, dtype=str, index_col="Index"))
+        expected_frame.sort_index(inplace=True)
+
+        LocalPath(datafile).copy(cache_file)
+        assert os.path.exists(cache_file)
+
+        # "check" ought to fail when the hash file does not exist.
+        assert not syphon.check(cache_file, hash_filepath=hash_file)
+        # If "check" fails, then a full build is performed.
+        assert syphon.build(
+            cache_file,
+            *get_data_files(archive_dir),
+            hash_filepath=hash_file,
+            incremental=True,
+            overwrite=True,
+            post_hash=post_hash,
+            verbose=verbose,
+        )
+        assert_post_hash(post_hash, cache_file, hash_filepath=hash_file)
+
+        actual_frame = DataFrame(read_csv(cache_file, dtype=str, index_col="Index"))
+        actual_frame.sort_index(inplace=True)
+
+        assert_frame_equal(expected_frame, actual_frame, check_exact=True)
+        assert_captured_outerr(capsys.readouterr(), verbose, False)
+
+    @staticmethod
+    def test_incremental_maintains_data_fidelity(
+        capsys: CaptureFixture,
+        archive_dir: LocalPath,
+        import_dir: LocalPath,
+        cache_file: LocalPath,
+        hash_file: Optional[LocalPath],
+        verbose: bool,
+    ):
+        pre_datafiles: List[str] = [
+            os.path.join(get_data_path(), "iris-part-1-of-6-combined.csv"),
+            os.path.join(get_data_path(), "iris-part-2-of-6-combined.csv"),
+            os.path.join(get_data_path(), "iris-part-3-of-6-combined.csv"),
+        ]
+        datafiles: List[str] = [
+            os.path.join(get_data_path(), "iris-part-4-of-6-combined.csv"),
+            os.path.join(get_data_path(), "iris-part-5-of-6-combined.csv"),
+            os.path.join(get_data_path(), "iris-part-6-of-6-combined.csv"),
+        ]
+
+        resolved_hashfile = (
+            cache_file.dirpath(syphon.core.check.DEFAULT_FILE)
+            if hash_file is None
+            else hash_file
+        )
+
+        for pre in pre_datafiles:
+            syphon.archive(pre, archive_dir)
+            assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
+
+        # Pre-build
+        assert syphon.build(
+            cache_file,
+            *get_data_files(archive_dir),
+            hash_filepath=hash_file,
+            incremental=False,
+            overwrite=False,
+            post_hash=True,
+            verbose=False,
+        )
+        # Get the hash of the cache file before our main build.
+        pre_cache_hash: str = syphon.hash.HashEntry(cache_file).hash
+        # Get the hash of the hash file for easy file change checking.
+        pre_hash_hash: str = syphon.hash.HashEntry(resolved_hashfile).hash
+
+        # Main build
+        assert syphon.build(
+            cache_file,
+            *datafiles,
+            hash_filepath=hash_file,
+            incremental=True,
+            overwrite=True,
+            post_hash=True,
+            verbose=verbose,
+        )
+        assert_captured_outerr(capsys.readouterr(), verbose, False)
+
+        post_cache_hash: str = syphon.hash.HashEntry(cache_file).hash
+        post_hash_hash: str = syphon.hash.HashEntry(resolved_hashfile).hash
+
+        expected_frame = DataFrame(
+            read_csv(
+                os.path.join(get_data_path(), "iris_plus.csv"),
+                dtype=str,
+                index_col="Index",
+            )
+        )
+        expected_frame.sort_index(inplace=True)
+
+        assert pre_cache_hash != post_cache_hash
+        assert pre_hash_hash != post_hash_hash
+
+        with syphon.hash.HashFile(resolved_hashfile) as hashfile:
+            for entry in hashfile:
+                if entry.filepath == str(cache_file):
+                    assert post_cache_hash == entry.hash
+
+        actual_frame = DataFrame(read_csv(cache_file, dtype=str, index_col="Index"))
+        actual_frame.sort_index(inplace=True)
+
+        assert_frame_equal(expected_frame, actual_frame, check_exact=True)
+
+    @staticmethod
+    def test_only_create_hash_file_when_post_hash_true(
+        capsys: CaptureFixture,
+        archive_dir: LocalPath,
+        cache_file: LocalPath,
+        hash_file: Optional[LocalPath],
+        verbose: bool,
+    ):
+        datafile: str = os.path.join(get_data_path(), "iris.csv")
+        syphon.archive(datafile, archive_dir)
+        assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
+
+        resolved_hashfile = (
+            cache_file.dirpath(syphon.core.check.DEFAULT_FILE)
+            if hash_file is None
+            else hash_file
+        )
+
+        assert not os.path.exists(resolved_hashfile)
+        assert syphon.build(
+            cache_file,
+            *get_data_files(archive_dir),
+            hash_filepath=hash_file,
+            incremental=False,
+            overwrite=True,
+            post_hash=False,
+            verbose=verbose,
+        )
+        assert not os.path.exists(resolved_hashfile)
+        assert_captured_outerr(capsys.readouterr(), verbose, False)
+        assert syphon.build(
+            cache_file,
+            *get_data_files(archive_dir),
+            hash_filepath=hash_file,
+            incremental=False,
+            overwrite=True,
+            post_hash=True,
+            verbose=verbose,
+        )
+        assert os.path.exists(resolved_hashfile)
+        assert_captured_outerr(capsys.readouterr(), verbose, False)
+
+    @staticmethod
+    def test_only_update_hash_file_when_post_hash_true(
+        capsys: CaptureFixture,
+        archive_dir: LocalPath,
+        cache_file: LocalPath,
+        hash_file: Optional[LocalPath],
+        verbose: bool,
+    ):
+        datafile: str = os.path.join(get_data_path(), "iris.csv")
+        syphon.archive(datafile, archive_dir)
+        assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
+
+        cache_file.write(rand_string())
+
+        resolved_hashfile = (
+            cache_file.dirpath(syphon.core.check.DEFAULT_FILE)
+            if hash_file is None
+            else hash_file
+        )
+        pathlib.Path(resolved_hashfile).touch()
+        with syphon.hash.HashFile(resolved_hashfile) as hashfile:
+            hashfile.update(syphon.hash.HashEntry(cache_file))
+
+        assert syphon.check(cache_file, hash_filepath=resolved_hashfile)
+        assert syphon.build(
+            cache_file,
+            *get_data_files(archive_dir),
+            hash_filepath=hash_file,
+            incremental=False,
+            overwrite=True,
+            post_hash=False,
+            verbose=verbose,
+        )
+        assert_captured_outerr(capsys.readouterr(), verbose, False)
+        assert not syphon.check(cache_file, hash_filepath=resolved_hashfile)
+        assert syphon.build(
+            cache_file,
+            *get_data_files(archive_dir),
+            hash_filepath=hash_file,
+            incremental=False,
+            overwrite=True,
+            post_hash=True,
+            verbose=verbose,
+        )
+        assert_captured_outerr(capsys.readouterr(), verbose, False)
+        assert syphon.check(cache_file, hash_filepath=resolved_hashfile)
+
+    @staticmethod
+    def test_raises_fileexistserror_when_cache_exists_during_full_build(
+        archive_dir: LocalPath, cache_file: LocalPath, hash_file: Optional[LocalPath]
+    ):
         datafile: str = os.path.join(get_data_path(), "iris.csv")
 
         syphon.archive(datafile, archive_dir, overwrite=True)
         assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
-        with open(cache_file, mode="w") as f:
-            f.write("content")
-
-        file_list: List[str] = list()
-        for root, _, files in os.walk(str(archive_dir)):
-            for file in files:
-                # skip linux-style hidden files
-                if not file.startswith(syphon.core.build.LINUX_HIDDEN_CHAR):
-                    file_list.append(os.path.join(root, file))
+        cache_file.write(rand_string())
 
         with pytest.raises(FileExistsError):
-            syphon.build(cache_file, *file_list, overwrite=False)
+            syphon.build(
+                cache_file,
+                *get_data_files(archive_dir),
+                hash_filepath=hash_file,
+                incremental=False,
+                overwrite=False,
+                post_hash=False,
+            )
+        assert_post_hash(False, cache_file, hash_filepath=hash_file)
+
+    @staticmethod
+    def test_raises_fileexistserror_when_cache_exists_during_incremental_build(
+        archive_dir: LocalPath, cache_file: LocalPath, hash_file: Optional[LocalPath]
+    ):
+        datafile: str = os.path.join(get_data_path(), "iris.csv")
+
+        syphon.archive(datafile, archive_dir, overwrite=True)
+        assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
+
+        cache_file.write(rand_string())
+
+        with pytest.raises(FileExistsError):
+            syphon.build(
+                cache_file,
+                *get_data_files(archive_dir),
+                hash_filepath=hash_file,
+                incremental=True,
+                overwrite=False,
+                post_hash=False,
+            )
+        assert_post_hash(False, cache_file, hash_filepath=hash_file)

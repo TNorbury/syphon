@@ -4,9 +4,11 @@
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
 
 """
-from typing import List
+import os
+from typing import List, Optional
 
 from _pytest.capture import CaptureResult
+from py._path.local import LocalPath
 
 
 def assert_captured_outerr(captured: CaptureResult, has_stdout: bool, has_stderr: bool):
@@ -38,3 +40,24 @@ def assert_matches_outerr(
         assert str(captured.err).find(err) != -1, match_msg.format(
             err, captured.err, "stderr"
         )
+
+
+def assert_post_hash(
+    post_hash: bool,
+    cache_file: LocalPath,
+    hash_filepath: Optional[LocalPath],
+    verbose: bool = False,
+):
+    import syphon.core.check
+
+    resolved_hashfile = (
+        cache_file.dirpath(syphon.core.check.DEFAULT_FILE)
+        if hash_filepath is None
+        else hash_filepath
+    )
+    if post_hash:
+        assert syphon.core.check.check(
+            cache_file, hash_filepath=resolved_hashfile, verbose=verbose
+        )
+    else:
+        assert not os.path.exists(resolved_hashfile)
