@@ -133,7 +133,7 @@ def get_parser() -> argparse.ArgumentParser:
     # check command
     # create check subcommand parser
     check_parser = subparsers.add_parser(
-        "check", epilog=epilog_last_line, help="checks the integrity of a built file"
+        "check", epilog=epilog_last_line, help="verifies the integrity of a built file"
     )
     # optional, hidden argument that is true when using this subparser
     # but does not exist otherwise
