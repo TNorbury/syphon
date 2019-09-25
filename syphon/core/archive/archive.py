@@ -5,20 +5,20 @@
 
 """
 import os
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pandas import DataFrame, Series, concat, read_csv
-from sortedcontainers import SortedDict, SortedList
+from sortedcontainers import SortedDict
 
 from ... import schema as schema_help
 from ...errors import InconsistentMetadataError
 from .datafilter import datafilter
-from .filemap import filemap
+from .filemap import filemap, MappingBehavior
 from .lockmanager import LockManager
 
 
 def merge_metafiles(
-    filemap: SortedDict, datafile: str, data_rows: int
+    filemap: Dict[str, List[str]], datafile: str, data_rows: int
 ) -> Optional[DataFrame]:
     # merge all metadata files into a single DataFrame
     meta_frame = DataFrame()
@@ -48,9 +48,11 @@ def write_filtered_data(
     datafile: str,
     overwrite: bool,
     verbose: bool,
-):
+) -> List[str]:
+    """Returns a list of written files."""
     datafilename = os.path.basename(datafile)
 
+    written_files: List[str] = []
     for data in filtered_data:
         path: Optional[str] = None
         path = schema_help.resolve_path(archive, schema, data)
@@ -61,29 +63,44 @@ def write_filtered_data(
 
         if os.path.exists(target_filename) and not overwrite:
             raise FileExistsError(
-                "Archive error: file already exists @ {}".format(target_filename)
+                "File already exists in archive @ {}".format(target_filename)
             )
 
         os.makedirs(path, exist_ok=True)
         data.to_csv(target_filename, index=False)
-
+        written_files.append(target_filename)
         if verbose:
-            print("Archive: wrote {0}".format(target_filename))
+            print("Archived {0}".format(target_filename))
+
+    return written_files
 
 
 def collate_data(
     archive_dir: str,
+    data_list: List[str],
+    meta_list: List[str],
+    filemap_behavior: MappingBehavior,
     schema: SortedDict,
-    data_list: SortedList,
-    meta_list: SortedList,
     overwrite: bool,
     verbose: bool,
-):
+) -> Dict[str, List[str]]:
+    """Returns a dictionary containing string keys which index string lists.
+
+    Keys are the given data files.
+    Each value is a list of files collated and archived from the data file key.
+    """
     from pandas.errors import EmptyDataError
 
-    fmap: SortedDict = filemap(data_list, meta_list)
+    fmap: Dict[str, List[str]]
+    collated_files: Dict[str, List[str]]
+    if len(meta_list) > 0:
+        fmap = filemap(filemap_behavior, data_list, meta_list)
+        collated_files = {key: [] for key in data_list}
+    else:
+        fmap = {key: [] for key in data_list}
+        collated_files = fmap.copy()
 
-    for datafile in fmap:
+    for datafile in fmap.keys():
         try:
             data_frame = DataFrame(read_csv(datafile, dtype=str))
         except EmptyDataError:
@@ -114,38 +131,46 @@ def collate_data(
 
         filtered_data: List[DataFrame] = datafilter(schema, data_frame)
 
-        write_filtered_data(
+        collated_files[datafile] = write_filtered_data(
             archive_dir, schema, filtered_data, datafile, overwrite, verbose
         )
 
+    return collated_files
+
 
 def archive(
-    data_glob: str,
     archive_dir: str,
+    data_files: List[str],
+    meta_files: Optional[List[str]] = None,
+    filemap_behavior: MappingBehavior = MappingBehavior.ONE_TO_ONE,
     schema_filepath: Optional[str] = None,
-    meta_glob: Optional[str] = None,
     overwrite: bool = False,
     verbose: bool = False,
-):
-    """Store the files matching the given glob pattern.
+) -> bool:
+    """Collate and store the data files.
 
     Args:
-        data_glob: Glob pattern matching one or more data files.
         archive_dir: Absolute path to the data storage directory.
+        data_files: CSV files to add to the archive.
+        meta_files: CSV files to treat as metadata files.
+        filemap_behavior: How data and metadata files should be mapped.
         schema_filepath: Absolute path to a JSON file containing a storage schema.
-        meta_glob: Glob pattern matching one or more metadata files.
         overwrite: Whether existing files should be overwritten during archival.
         verbose: Whether activities should be printed to the standard output.
 
+    Returns:
+        True if the given files where archived successfully, False otherwise.
+
     Raises:
-        FileNotFoundError: A given glob pattern failed to match any files.
         FileExistsError: An archive file already exists with the same filepath.
+        FileNotFoundError: A given file does not exist.
         IndexError: Schema value is not a column header of a given DataFrame.
         OSError: File operation error. Error type raised may be a subclass of OSError.
         ValueError: More than one unique metadata value exists under a column header.
         Exception: Any error raised by pandas.read_csv.
     """
-    from glob import glob
+    if meta_files is None:
+        meta_files = []
 
     lock_manager = LockManager()
     lock_list: List[str] = list()
@@ -154,23 +179,44 @@ def archive(
         schema_filepath
     )
 
-    # add '#lock' file to all data directories
-    data_list: SortedList = SortedList(glob(data_glob))
-    if len(data_list) == 0:
+    if len(data_files) == 0:
         lock_manager.release_all()
-        raise FileNotFoundError('No data files matching "{}"'.format(data_glob))
-    lock_list.append(lock_manager.lock(os.path.dirname(data_list[0])))
+        if verbose:
+            print("Nothing to archive")
+        return False
+
+    # add '#lock' file to all data directories
+    for d_file in data_files:
+        if not os.path.exists(d_file):
+            lock_manager.release_all()
+            raise FileNotFoundError(
+                "Cannot archive nonexistent data file @ {}".format(d_file)
+            )
+        lock_list.append(lock_manager.lock(os.path.dirname(d_file)))
 
     # add '#lock' file to all metadata directories
-    meta_list: SortedList = SortedList()
-    if meta_glob is not None:
-        meta_list = SortedList(glob(meta_glob))
-        if len(meta_list) == 0:
+    for m_file in meta_files:
+        if not os.path.exists(m_file):
             lock_manager.release_all()
-            raise FileNotFoundError('No metadata files matching "{}"'.format(data_glob))
-        lock_list.append(lock_manager.lock(os.path.dirname(meta_list[0])))
+            raise FileNotFoundError(
+                "Cannot archive nonexistent metadata file @ {}".format(m_file)
+            )
+        lock_list.append(lock_manager.lock(os.path.dirname(m_file)))
 
     try:
-        collate_data(archive_dir, schema, data_list, meta_list, overwrite, verbose)
+        archival_map: Dict[str, List[str]] = collate_data(
+            archive_dir,
+            data_files,
+            meta_files,
+            filemap_behavior,
+            schema,
+            overwrite,
+            verbose,
+        )
     finally:
         lock_manager.release_all()
+
+    for v in archival_map.values():
+        if len(v) == 0:
+            return False
+    return True

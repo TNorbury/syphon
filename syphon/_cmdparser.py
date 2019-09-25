@@ -93,18 +93,50 @@ def get_parser() -> argparse.ArgumentParser:
         required=False,
     )
     archive_parser.add_argument(
+        "archive_source", help="file or glob pattern", metavar="source", nargs="+"
+    )
+    archive_parser.add_argument(
         "archive_destination",
-        help="directory where data is archived",
+        help="directory where data is stored",
         metavar="destination",
     )
     archive_parser.add_argument(
-        "-d", "--data", help="data file or glob pattern", required=True
-    )
-    archive_parser.add_argument(
         "-m",
-        "--metadata",
+        "--meta-mask",
         default=None,
-        help="metadata file or glob pattern",
+        dest="meta_mask",
+        help=(
+            "string pattern that indicates a metadata file when contained in a source "
+            "filepath"
+        ),
+        metavar="MASK",
+        nargs="*",
+        type=str,
+    )
+    behavior_group = archive_parser.add_argument_group(
+        "mapping behavior arguments",
+        "mutually exclusive optional arguments that control file mapping",
+    )
+    behavior_exclusive_group = behavior_group.add_mutually_exclusive_group(
+        required=False
+    )
+    behavior_exclusive_group.add_argument(
+        "--one-to-one",
+        action="store_true",
+        default=True,
+        dest="one_to_one",
+        help=(
+            "pairs a data filename, excluding extension, to a metadata file with the "
+            "same name (the default)"
+        ),
+        required=False,
+    )
+    behavior_exclusive_group.add_argument(
+        "--one-to-many",
+        action="store_true",
+        default=False,
+        dest="one_to_many",
+        help="associates each data file to every available metadata file",
         required=False,
     )
 
@@ -166,9 +198,7 @@ def get_parser() -> argparse.ArgumentParser:
         required=False,
     )
     init_parser.add_argument(
-        "init_destination",
-        help="directory where data is archived",
-        metavar="destination",
+        "init_destination", help="directory where data is stored", metavar="destination"
     )
     init_parser.add_argument(
         "headers",

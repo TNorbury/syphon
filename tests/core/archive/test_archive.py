@@ -118,7 +118,7 @@ def test_archive(
     datafile = os.path.join(get_data_path(), filename)
     schemafile = os.path.join(archive_dir, syphon.schema.DEFAULT_FILE)
 
-    syphon.init(schema, schemafile, overwrite)
+    syphon.init(schema, schemafile)
 
     expected_df = DataFrame(read_csv(datafile, dtype=str))
     expected_df.sort_values(list(expected_df.columns), inplace=True)
@@ -134,8 +134,12 @@ def test_archive(
             with open(e, mode="w") as fd:
                 fd.write("content")
 
-    syphon.archive(
-        datafile, archive_dir, schemafile, overwrite=overwrite, verbose=verbose
+    assert syphon.archive(
+        archive_dir,
+        [datafile],
+        schema_filepath=schemafile,
+        overwrite=overwrite,
+        verbose=verbose,
     )
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
@@ -163,7 +167,7 @@ def test_archive_emptydata(
 ):
     datafile = os.path.join(get_data_path(), "empty.csv")
 
-    syphon.archive(datafile, archive_dir, verbose=verbose)
+    assert not syphon.archive(archive_dir, [datafile], verbose=verbose)
 
     assert_captured_outerr(capsys.readouterr(), verbose, False)
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
@@ -181,11 +185,11 @@ def test_archive_metadata(
     schema: SortedDict
     filename, expectedfilename, schema = archive_meta_params
 
-    datafile = os.path.join(get_data_path(), filename) + ".csv"
-    metafile = os.path.join(get_data_path(), filename) + ".meta"
+    datafile = os.path.join(get_data_path(), filename + ".csv")
+    metafile = os.path.join(get_data_path(), filename + ".meta")
     schemafile = os.path.join(archive_dir, syphon.schema.DEFAULT_FILE)
 
-    syphon.init(schema, schemafile, overwrite)
+    syphon.init(schema, schemafile)
 
     expected_df = DataFrame(
         # Read our dedicated *-combined.csv file instead of the import target.
@@ -204,7 +208,14 @@ def test_archive_metadata(
             with open(e, mode="w") as fd:
                 fd.write("content")
 
-    syphon.archive(datafile, archive_dir, schemafile, metafile, overwrite, verbose)
+    assert syphon.archive(
+        archive_dir,
+        [datafile],
+        meta_files=[metafile],
+        schema_filepath=schemafile,
+        overwrite=overwrite,
+        verbose=verbose,
+    )
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
     actual_df = DataFrame()
@@ -251,7 +262,7 @@ def test_archive_no_schema(
             with open(e, mode="w") as fd:
                 fd.write("content")
 
-    syphon.archive(datafile, archive_dir, overwrite=overwrite, verbose=verbose)
+    assert syphon.archive(archive_dir, [datafile], overwrite=overwrite, verbose=verbose)
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
     actual_frame = DataFrame()
@@ -283,7 +294,7 @@ def test_archive_fileexistserror(
     datafile = os.path.join(get_data_path(), filename)
     schemafile = os.path.join(archive_dir, syphon.schema.DEFAULT_FILE)
 
-    syphon.init(schema, schemafile, True)
+    syphon.init(schema, schemafile)
 
     expected_df = DataFrame(read_csv(datafile, dtype=str))
 
@@ -297,7 +308,9 @@ def test_archive_fileexistserror(
             f.write("content")
 
     with pytest.raises(FileExistsError, match=os.path.basename(datafile)):
-        syphon.archive(datafile, archive_dir, schemafile, overwrite=False)
+        syphon.archive(
+            archive_dir, [datafile], schema_filepath=schemafile, overwrite=False
+        )
 
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
@@ -305,8 +318,8 @@ def test_archive_fileexistserror(
 def test_archive_filenotfounderror_data(archive_dir: LocalPath):
     datafile = os.path.join(get_data_path(), "nonexistantfile.csv")
 
-    with pytest.raises(FileNotFoundError, match="data files"):
-        syphon.archive(datafile, archive_dir)
+    with pytest.raises(FileNotFoundError, match="data file"):
+        syphon.archive(archive_dir, [datafile])
 
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
@@ -321,8 +334,8 @@ def test_archive_filenotfounderror_meta(
     datafile = os.path.join(get_data_path(), filename)
     metafile = os.path.join(get_data_path(), "nonexistantfile.meta")
 
-    with pytest.raises(FileNotFoundError, match="metadata files"):
-        syphon.archive(datafile, archive_dir, meta_glob=metafile)
+    with pytest.raises(FileNotFoundError, match="metadata file"):
+        syphon.archive(archive_dir, [datafile], meta_files=[metafile])
 
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
@@ -338,33 +351,46 @@ def test_archive_indexerror(
     filename, expectedfilename, schema = archive_meta_params
 
     # Add a bad column.
-    schema["%d" % len(schema)] = bad_column
+    local_schema = schema.copy()
+    local_schema["%d" % len(local_schema)] = bad_column
 
-    datafile = os.path.join(get_data_path(), filename) + ".csv"
-    metafile = os.path.join(get_data_path(), filename) + ".meta"
+    datafile = os.path.join(get_data_path(), filename + ".csv")
+    metafile = os.path.join(get_data_path(), filename + ".meta")
     schemafile = os.path.join(archive_dir, syphon.schema.DEFAULT_FILE)
 
-    syphon.init(schema, schemafile, True)
+    syphon.init(local_schema, schemafile)
 
     with pytest.raises(IndexError, match=bad_column):
-        syphon.archive(datafile, archive_dir, schemafile, metafile, True)
+        syphon.archive(
+            archive_dir,
+            [datafile],
+            meta_files=[metafile],
+            schema_filepath=schemafile,
+            overwrite=True,
+        )
 
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
 
 def test_archive_valueerror(
-    archive_meta_params: Tuple[str, str, SortedDict], archive_dir: LocalPath
+    archive_meta_params: Tuple[str, str, SortedDict],
+    archive_dir: LocalPath,
+    import_dir: LocalPath,
 ):
     filename: str
     expectedfilename: str
     schema: SortedDict
     filename, expectedfilename, schema = archive_meta_params
 
-    datafile = os.path.join(get_data_path(), filename) + ".csv"
-    metafile = os.path.join(get_data_path(), filename) + ".inconsistent.meta"
+    datafile = os.path.join(get_data_path(), filename + ".csv")
+    bad_metafile = LocalPath(
+        os.path.join(get_data_path(), filename + "-inconsistent.meta")
+    )
+    metafile = import_dir.join(filename + ".meta")
+    bad_metafile.copy(metafile)
     schemafile = os.path.join(archive_dir, syphon.schema.DEFAULT_FILE)
 
-    syphon.init(schema, schemafile, True)
+    syphon.init(schema, schemafile)
 
     # Find the column that will be in the message.
     metaframe = DataFrame(read_csv(metafile, dtype=str))
@@ -374,6 +400,12 @@ def test_archive_valueerror(
     del metaframe
 
     with pytest.raises(ValueError, match=column):
-        syphon.archive(datafile, archive_dir, schemafile, metafile, True)
+        syphon.archive(
+            archive_dir,
+            [datafile],
+            meta_files=[metafile],
+            schema_filepath=schemafile,
+            overwrite=True,
+        )
 
     assert not os.path.exists(os.path.join(get_data_path(), "#lock"))

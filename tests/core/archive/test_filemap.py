@@ -4,37 +4,99 @@
    Licensed under MIT (https://github.com/tektronix/syphon/blob/master/LICENSE)
 
 """
-from os.path import splitext
-from typing import List
+import os
+from glob import glob
+from typing import Dict, List
 
-from sortedcontainers import SortedDict, SortedList
+import pytest
+from py._path.local import LocalPath
 
-from syphon.core.archive.filemap import filemap
+from syphon.core.archive.filemap import filemap, MappingBehavior
 
-
-def test_filemap_loose_metadata(random_data: List[str], random_metadata: List[str]):
-    data = random_data
-    meta = random_metadata
-
-    expected = SortedDict()
-    for d in data:
-        expected[d] = SortedList(meta)
-
-    actual: SortedDict = filemap(SortedList(data), SortedList(meta))
-
-    assert actual == expected
+from ... import get_data_path, rand_string
 
 
-def test_filemap_data_metadata_pairs(random_data: List[str]):
-    data = random_data
+class TestFilemap(object):
+    @staticmethod
+    @pytest.mark.parametrize("d", [n for n in range(1, 5)])
+    def test_one_to_many_does_not_need_metadata_files(d: int):
+        datafiles: List[str] = [rand_string() for _ in range(d)]
+        metafiles: List[str] = []
 
-    meta: List[str] = list()
-    expected = SortedDict()
-    for d in data:
-        new_file = "{}{}".format(splitext(d)[0], ".meta")
-        meta.append(new_file)
-        expected[d] = [new_file]
+        actual_filemap: Dict[str, List[str]] = filemap(
+            MappingBehavior.ONE_TO_MANY, datafiles, metafiles
+        )
+        assert datafiles == [k for k in actual_filemap.keys()]
+        for k in actual_filemap.keys():
+            assert metafiles == actual_filemap[k]
 
-    actual: SortedDict = filemap(SortedList(data), SortedList(meta))
+    @staticmethod
+    @pytest.mark.parametrize("d", [n for n in range(1, 5)])
+    def test_one_to_many_groups_all_meta_to_each_data(d: int):
+        datafiles: List[str] = [rand_string() for _ in range(d)]
+        metafiles: List[str] = glob(
+            os.path.join(get_data_path(), "iris-part-*-of-6.meta")
+        )
 
-    assert actual == expected
+        actual_filemap: Dict[str, List[str]] = filemap(
+            MappingBehavior.ONE_TO_MANY, datafiles, metafiles
+        )
+        assert datafiles == [k for k in actual_filemap.keys()]
+        for k in actual_filemap.keys():
+            assert metafiles == actual_filemap[k]
+
+    @staticmethod
+    def test_one_to_one_lists_must_be_equal_size():
+        datafiles: List[str] = glob(
+            os.path.join(get_data_path(), "iris-part-*-of-6.csv")
+        )
+        metafiles: List[str] = glob(
+            os.path.join(get_data_path(), "iris-part-*-of-6.meta")
+        )
+        metafiles = metafiles[:-1]
+
+        expected_filemap = dict()
+        actual_filemap: Dict[str, List[str]] = filemap(
+            MappingBehavior.ONE_TO_ONE, datafiles, metafiles
+        )
+        assert expected_filemap == actual_filemap
+
+    @staticmethod
+    def test_one_to_one_only_compares_filenames(import_dir: LocalPath):
+        datafiles: List[str] = glob(
+            os.path.join(get_data_path(), "iris-part-*-of-6.csv")
+        )
+        target_metafiles: List[str] = glob(
+            os.path.join(get_data_path(), "iris-part-*-of-6.meta")
+        )
+        metafiles: List[LocalPath] = []
+        for meta in target_metafiles:
+            dest = import_dir.join(os.path.basename(meta))
+            metafiles.append(dest)
+            LocalPath(meta).copy(dest)
+
+        actual_filemap: Dict[str, List[str]] = filemap(
+            MappingBehavior.ONE_TO_ONE, datafiles, metafiles
+        )
+        expected_filemap = {i: [j] for i, j in zip(datafiles, metafiles)}
+        assert expected_filemap == actual_filemap
+
+    @staticmethod
+    def test_one_to_one_pairs_equal_filenames():
+        datafiles: List[str] = glob(
+            os.path.join(get_data_path(), "iris-part-*-of-6.csv")
+        )
+        metafiles: List[str] = glob(
+            os.path.join(get_data_path(), "iris-part-*-of-6.meta")
+        )
+
+        actual_filemap: Dict[str, List[str]] = filemap(
+            MappingBehavior.ONE_TO_ONE, datafiles, metafiles
+        )
+        expected_filemap = {i: [j] for i, j in zip(datafiles, metafiles)}
+        assert expected_filemap == actual_filemap
+
+    @staticmethod
+    def test_one_to_one_returns_empty_dict_on_bad_map():
+        actual_filemap: Dict = filemap(MappingBehavior.ONE_TO_ONE, [rand_string()], [])
+        assert {} == actual_filemap

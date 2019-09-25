@@ -24,11 +24,11 @@ def _archive_args(archive_dir_fixture: LocalPath) -> List[str]:
     return [
         "syphon",
         "archive",
-        "-d",
         os.path.join(get_data_path(), "iris-part-*-of-6.csv"),
-        "-m",
         os.path.join(get_data_path(), "iris-part-*-of-6.meta"),
         str(archive_dir_fixture),
+        "-m",
+        ".meta",
     ]
 
 

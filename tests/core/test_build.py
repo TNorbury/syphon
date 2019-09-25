@@ -89,8 +89,8 @@ class TestBuild(object):
         schemafile = os.path.join(archive_dir, syphon.schema.DEFAULT_FILE)
 
         syphon.init(schema, schemafile, overwrite=overwrite)
-        syphon.archive(
-            datafile, archive_dir, schema_filepath=schemafile, overwrite=overwrite
+        assert syphon.archive(
+            archive_dir, [datafile], schema_filepath=schemafile, overwrite=overwrite
         )
         assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
@@ -129,7 +129,7 @@ class TestBuild(object):
     ):
         datafile: str = os.path.join(get_data_path(), "iris.csv")
 
-        syphon.archive(datafile, archive_dir, overwrite=overwrite)
+        assert syphon.archive(archive_dir, [datafile], overwrite=overwrite)
         assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
         expected_frame = DataFrame(read_csv(datafile, dtype=str, index_col="Index"))
@@ -172,8 +172,8 @@ class TestBuild(object):
 
         if schema:
             syphon.init(schema, schemafile)
-        syphon.archive(
-            datafile, archive_dir, schema_filepath=schemafile if schema else None
+        assert syphon.archive(
+            archive_dir, [datafile], schema_filepath=schemafile if schema else None
         )
         assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
@@ -214,8 +214,8 @@ class TestBuild(object):
 
         if schema:
             syphon.init(schema, schemafile)
-        syphon.archive(
-            datafile, archive_dir, schema_filepath=schemafile if schema else None
+        assert syphon.archive(
+            archive_dir, [datafile], schema_filepath=schemafile if schema else None
         )
         assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
@@ -271,9 +271,8 @@ class TestBuild(object):
             else hash_file
         )
 
-        for pre in pre_datafiles:
-            syphon.archive(pre, archive_dir)
-            assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
+        assert syphon.archive(archive_dir, pre_datafiles)
+        assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
         # Pre-build
         assert syphon.build(
@@ -336,7 +335,7 @@ class TestBuild(object):
         verbose: bool,
     ):
         datafile: str = os.path.join(get_data_path(), "iris.csv")
-        syphon.archive(datafile, archive_dir)
+        assert syphon.archive(archive_dir, [datafile])
         assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
         resolved_hashfile = (
@@ -378,7 +377,7 @@ class TestBuild(object):
         verbose: bool,
     ):
         datafile: str = os.path.join(get_data_path(), "iris.csv")
-        syphon.archive(datafile, archive_dir)
+        assert syphon.archive(archive_dir, [datafile])
         assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
         cache_file.write(rand_string())
@@ -422,7 +421,7 @@ class TestBuild(object):
     ):
         datafile: str = os.path.join(get_data_path(), "iris.csv")
 
-        syphon.archive(datafile, archive_dir, overwrite=True)
+        assert syphon.archive(archive_dir, [datafile], overwrite=True)
         assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
         cache_file.write(rand_string())
@@ -444,7 +443,7 @@ class TestBuild(object):
     ):
         datafile: str = os.path.join(get_data_path(), "iris.csv")
 
-        syphon.archive(datafile, archive_dir, overwrite=True)
+        assert syphon.archive(archive_dir, [datafile], overwrite=True)
         assert not os.path.exists(os.path.join(get_data_path(), "#lock"))
 
         cache_file.write(rand_string())

@@ -5,36 +5,45 @@
 
 """
 import os
+from enum import Enum
+from typing import Dict, List
 
-from sortedcontainers import SortedDict, SortedList
+
+class MappingBehavior(Enum):
+    ONE_TO_ONE = 0
+    ONE_TO_MANY = 1
 
 
-def filemap(data: SortedList, meta: SortedList) -> SortedDict:
+def filemap(
+    behavior: MappingBehavior, data: List[str], meta: List[str]
+) -> Dict[str, List[str]]:
     """Create a data-metadata file pair map.
 
-    If there are more data files than metadata files (or vise versa),
-    then each data file will match to all metadata files.
+    If the given behavior is one-to-one, then match each data file with
+    a metadata file that has the same name (excluding the extension).
 
-    If there are equal number data and metadata files, then try to match
-    each data file with a metadata file that has the same name
-    (excluding the extension). If there is not a match for every data
-    file, then revert to the previous matching scheme.
+    If the given behavior is one-to-many, then each data file will
+    match to all metadata files.
 
     Args:
-        data: Ordered list of absolute data file paths.
-        meta: Ordered list of absolute metadata file paths.
+        behavior: How data and metadata files should be mapped.
+        data: Absolute data file paths.
+        meta: Absolute metadata file paths.
 
     Returns:
-        Dictionary sorted by key which indexes string lists.
+        Dictionary containing string keys which index string lists.
 
-        Keys are the absolute file path of a data file as a
-        string. Values are a string list containing the absolute
-        file path of metadata files associated with a data file.
+        Keys are the given data files.
+        Each value is a list containing metadata files associated with
+        the data file key.
+
+        Empty if the requested behavior could not be performed on the
+        given file lists.
     """
-    result = SortedDict()
+    result: Dict[str, List[str]] = dict()
 
-    if len(data) == len(meta):
-        # Associate one data file to one metadata file.
+    if behavior == MappingBehavior.ONE_TO_ONE and len(data) == len(meta):
+        # Associate one data file to a matching metadata file.
         for datafile in data:
             dataname, _ = os.path.splitext(os.path.basename(datafile))
             for metafile in meta:
@@ -42,10 +51,9 @@ def filemap(data: SortedList, meta: SortedList) -> SortedDict:
                 if dataname == metaname:
                     result[datafile] = [metafile]
 
-    if len(result) == 0:
+    elif behavior == MappingBehavior.ONE_TO_MANY:
         # Associate each data file to all metadata files.
         for datafile in data:
             result[datafile] = [metafile for metafile in meta]
-        return result
 
     return result
