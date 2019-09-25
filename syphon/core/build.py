@@ -60,7 +60,7 @@ def build(
 
     if len(files) == 0:
         if verbose:
-            print("Build: nothing to do")
+            print("Nothing to build")
         return False
 
     if hash_filepath is None:
@@ -69,7 +69,7 @@ def build(
 
     if os.path.exists(cache_filepath):
         if not overwrite:
-            raise FileExistsError("Cache file already exists")
+            raise FileExistsError("Build output file already exists")
 
         if incremental:
             # If the recorded cache hash does not match (check returns False),
@@ -88,7 +88,7 @@ def build(
 
     for file in files:
         if verbose:
-            print("Build: from {0}".format(file))
+            print("Building from {0}".format(file))
 
         data = DataFrame(read_csv(file, dtype=str))
 
@@ -100,7 +100,7 @@ def build(
 
         if verbose:
             print(
-                "Build: appending data {0} onto cache {1} => {2}".format(
+                "Building data {0} onto cache {1} => {2}".format(
                     data_shape, cache_pre_shape, cache.shape
                 )
             )
@@ -118,6 +118,6 @@ def build(
             hashfile.update(new_entry)
 
     if verbose:
-        print("Build: wrote {0}".format(cache_filepath))
+        print("Built {0}".format(cache_filepath))
 
     return True
