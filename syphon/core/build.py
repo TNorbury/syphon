@@ -22,8 +22,10 @@ def build(
     # NOTE: the check function uses the exact same wording for "hash_filepath".
     """Combine all archived data files into a single file.
 
-    The value of the "incremental" argument is treated as False if the cache's
-    recorded hash value does not match its present hash value.
+    The value of the "incremental" argument is treated as False if:
+    * the cache's recorded hash value does not match its present hash value.
+    * the cache does not exist.
+    * the hash file does not exist.
 
     Args:
         archive_dir: Absolute path to the data storage directory.
