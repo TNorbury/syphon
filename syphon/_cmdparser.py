@@ -128,9 +128,7 @@ def get_parser() -> argparse.ArgumentParser:
     build_parser.add_argument(
         "build_destination", help="filename of the output file", metavar="destination"
     )
-    build_parser.add_argument(
-        "hashfile", default=None, help=hashfile_help, nargs="?"
-    )
+    build_parser.add_argument("hashfile", default=None, help=hashfile_help, nargs="?")
 
     # check command
     # create check subcommand parser
@@ -149,9 +147,7 @@ def get_parser() -> argparse.ArgumentParser:
     check_parser.add_argument(
         "check_source", help="file output by the build command", metavar="source"
     )
-    check_parser.add_argument(
-        "hashfile", default=None, help=hashfile_help, nargs="?"
-    )
+    check_parser.add_argument("hashfile", default=None, help=hashfile_help, nargs="?")
 
     # init command
     # create init subcommand parser
