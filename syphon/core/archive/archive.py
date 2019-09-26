@@ -175,15 +175,21 @@ def archive(
     lock_manager = LockManager()
     lock_list: List[str] = list()
 
-    schema: SortedDict = SortedDict() if schema_filepath is None else schema_help.load(
-        schema_filepath
-    )
-
     if len(data_files) == 0:
         lock_manager.release_all()
         if verbose:
             print("Nothing to archive")
         return False
+
+    schema = SortedDict()
+    if schema_filepath is not None:
+        if not os.path.exists(schema_filepath):
+            raise FileNotFoundError(
+                "Cannot archive using nonexistent schema file @ {}".format(
+                    schema_filepath
+                )
+            )
+        schema = schema_help.load(schema_filepath)
 
     # add '#lock' file to all data directories
     for d_file in data_files:
@@ -216,6 +222,7 @@ def archive(
     finally:
         lock_manager.release_all()
 
+    # Each data file must have at least 1 corresponding archive file.
     for v in archival_map.values():
         if len(v) == 0:
             return False
